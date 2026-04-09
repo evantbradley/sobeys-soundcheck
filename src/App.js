@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
-  Shield, Brain, Activity, CheckSquare, RefreshCw, QrCode,
+  Shield, Brain, Activity, CheckSquare, QrCode,
   Clock, HeartPulse, MapPin, Lock, X, Building, ShieldCheck,
   Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, Wifi, Battery
 } from 'lucide-react';
@@ -31,17 +31,17 @@ const useAudioEngine = () => {
       audio.crossOrigin = "anonymous";
       audio.loop = true;
       backgroundAudioRef.current = audio;
-      audio.play().catch(e => console.log("Audio play prevented by browser:", e));
+      audio.play().catch(e => console.log("Audio play prevented:", e));
     } else if (backgroundAudioRef.current.paused) {
-      backgroundAudioRef.current.play().catch(e => console.log(e));
+      backgroundAudioRef.current.play().catch(e => console.log("Audio play prevented:", e));
     }
 
     let bgVol = 1.0; let speechVol = 0.3;
 
+    // The Progression
     if (mode === 'untreated') { bgVol = 1.0; speechVol = 0.2; } 
-    else if (mode === 'directional') { bgVol = 0.4; speechVol = 0.6; } 
-    else if (mode === 'suppression') { bgVol = 0.1; speechVol = 0.9; }
-    else if (mode === 'active') { bgVol = 0.02; speechVol = 1.0; }
+    else if (mode === 'suppression') { bgVol = 0.2; speechVol = 0.8; }
+    else if (mode === 'active') { bgVol = 0.02; speechVol = 1.0; } // Total AI Isolation
 
     backgroundAudioRef.current.volume = bgVol;
     window.speechSynthesis.cancel(); 
@@ -71,20 +71,18 @@ export default function App() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [simMode, setSimMode] = useState('untreated');
   
-  // Interactive Dashboard States
-  const [activeWearableTab, setActiveWearableTab] = useState(0);
-  const [activeEduTab, setActiveEduTab] = useState(0);
   const [activeTechTab, setActiveTechTab] = useState(0);
+  const [activeEduTab, setActiveEduTab] = useState(0);
   
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [frictionScore, setFrictionScore] = useState(0);
 
   const audio = useAudioEngine();
-  const patientSteps = 10; 
+  const patientSteps = 8; 
   const progress = (step / patientSteps) * 100;
 
-  // GHOST PROTOCOL (60-Second Idle Timer)
+  // GHOST PROTOCOL (5-Minute Idle Timer for Pitch Safety)
   useEffect(() => {
     let timeout;
     const resetTimer = () => {
@@ -96,7 +94,7 @@ export default function App() {
           setFrictionScore(0);
           setConsentGiven(false);
         }
-      }, 60000);
+      }, 300000); // 5 minutes
     };
 
     window.addEventListener('mousemove', resetTimer);
@@ -112,13 +110,19 @@ export default function App() {
     };
   }, [step, audio]);
 
+  // strict Audio Lifecycle Management
   useEffect(() => {
-    if (step === 7) {
+    if (step === 2) {
       setSimMode('untreated');
       audio.startCafeSimulation('untreated');
+    } else if (step === 6) {
+      setSimMode('active'); // Default to full AI clarity on the final reveal
+      audio.startCafeSimulation('active');
     } else {
       audio.stopAll();
     }
+    // Cleanup on unmount or step change
+    return () => audio.stopAll();
   }, [step]);
 
   const handlePinSubmit = (e) => {
@@ -129,22 +133,21 @@ export default function App() {
 
   const next = (points = 0) => { 
     setFrictionScore(prev => prev + points);
-    audio.stopAll(); setStep(s => s + 1); 
+    setStep(s => s + 1); 
   };
   
-  const back = () => { audio.stopAll(); setStep(s => Math.max(0, s - 1)); };
+  const back = () => { setStep(s => Math.max(0, s - 1)); };
+
+  const handleSimChange = (mode) => {
+    setSimMode(mode);
+    audio.startCafeSimulation(mode);
+  }
 
   const RHButton = ({ children, onClick, variant="p", className="", disabled=false }) => (
     <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
   );
 
   const bgClass = step < 20 ? "bg-[#F9F8F4] text-[#3E3E3E]" : "bg-white text-[#3E3E3E]";
-
-  const eduTabs = [
-    { icon: <Brain size={24}/>, title: "The Cognitive Tax", content: "When you lose high frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day." },
-    { icon: <Clock size={24}/>, title: "The Decade of Delay", content: "The average adult struggles with hearing decline for 7 to 10 years before seeking help. That is a decade of missed punchlines and misunderstood whispers. Treating it early preserves neural pathways." },
-    { icon: <RefreshCw size={24}/>, title: "Modern Truths", content: "The stigma is outdated. Constantly asking 'pardon?' ages us far more than wearing a hidden micro-computer. Modern tech doesn't just turn up the volume; it uses AI to isolate human connection." }
-  ];
 
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
@@ -167,7 +170,7 @@ export default function App() {
 
       <main className="max-w-4xl w-full flex flex-col justify-center items-center relative z-10 pb-12 mt-12">
 
-        {/* 1. WELCOME & QR HOOK */}
+        {/* STEP 0: WELCOME & QR HOOK */}
         {step === 0 && (
           <div className="space-y-8 animate-fade-in relative w-full flex flex-col items-center">
             <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-2">Experience AI-Enhanced Hearing</h1>
@@ -182,108 +185,84 @@ export default function App() {
           </div>
         )}
         
-        {/* HHIE-S QUESTIONS */}
-        {step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV volume frequently cause disagreements, or do you find yourself needing captions to follow the dialogue?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely / Never</RHButton></div></div>)}
-        {step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">It requires intense concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I hear everything effortlessly</button></div></div>)}
-        {step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">No, I never avoid social situations</button></div></div>)}
+        {/* STEP 1: PROBLEM A - Crowd Check */}
+        {step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">It requires intense concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I hear everything effortlessly</button></div></div>)}
         
-        {/* 5. THE EDUCATION DASHBOARD */}
-        {step === 4 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
-            <h2 className="text-5xl italic text-[#3E3E3E] mb-6">The Hidden Impact</h2>
-            <div className="w-full flex flex-col md:flex-row gap-6 bg-white p-8 rounded-[3rem] border border-[#1B5234]/10 shadow-lg">
-              <div className="flex flex-col gap-3 flex-1">
-                {eduTabs.map((tab, idx) => (
-                  <button key={idx} onClick={() => setActiveEduTab(idx)} className={`p-5 rounded-2xl flex items-center gap-4 transition-all duration-300 border-2 text-left ${activeEduTab === idx ? 'bg-[#F9F8F4] border-[#1B5234] shadow-sm' : 'bg-transparent border-transparent hover:bg-gray-50 opacity-60'}`}>
-                    <div className={`${activeEduTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.icon}</div>
-                    <span className={`font-bold text-lg ${activeEduTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.title}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="flex-[1.5] bg-[#F9F8F4] rounded-2xl p-8 flex flex-col justify-center text-left border border-[#E8E4DB]">
-                <div className="text-[#1B5234] mb-6">{eduTabs[activeEduTab].icon}</div>
-                <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">{eduTabs[activeEduTab].title}</h3>
-                <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/90">{eduTabs[activeEduTab].content}</p>
-              </div>
-            </div>
-            <div className="pt-6"><RHButton onClick={() => next(0)}>Continue to Technology</RHButton></div>
-          </div>
-        )}
-
-        {/* 6. SPOT THE TECH (Merged) */}
-        {step === 5 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl">
-            <h2 className="text-5xl italic text-[#3E3E3E] mb-6">Invisible Sophistication</h2>
-            <div className="w-full flex flex-col md:flex-row gap-6">
-              <div onClick={() => setActiveTechTab(0)} className={`flex-1 p-8 rounded-[2rem] border-2 cursor-pointer transition-all ${activeTechTab === 0 ? 'bg-white border-[#1B5234] shadow-lg scale-105 z-10' : 'bg-[#E8E4DB]/30 border-transparent hover:bg-white/50 opacity-70'}`}>
-                <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">Receiver-in-Canal (RIC)</h3>
-                <p className="font-light opacity-80 mb-8 h-16">The micro-computer sits invisibly behind the ear, delivering pristine audio.</p>
-                <div className="relative w-full aspect-square bg-[#F9F8F4] rounded-2xl flex items-center justify-center border border-[#1B5234]/10 overflow-hidden">
-                  <Ear size={120} className="text-[#3E3E3E]/10 absolute" />
-                  <div className="absolute top-1/4 right-1/4 flex items-center gap-2"><div className="w-4 h-4 bg-[#1B5234] rounded-full animate-ping absolute"></div><div className="w-4 h-4 bg-[#1B5234] rounded-full relative z-10"></div></div>
-                </div>
-              </div>
-              <div onClick={() => setActiveTechTab(1)} className={`flex-1 p-8 rounded-[2rem] border-2 cursor-pointer transition-all ${activeTechTab === 1 ? 'bg-white border-[#1B5234] shadow-lg scale-105 z-10' : 'bg-[#E8E4DB]/30 border-transparent hover:bg-white/50 opacity-70'}`}>
-                <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">Custom In-The-Ear</h3>
-                <p className="font-light opacity-80 mb-8 h-16">Molded to your anatomy. Sits deep within the ear canal, 100% hidden.</p>
-                <div className="relative w-full aspect-square bg-[#F9F8F4] rounded-2xl flex items-center justify-center border border-[#1B5234]/10 overflow-hidden">
-                  <Ear size={120} className="text-[#3E3E3E]/10 absolute" />
-                  <div className="absolute inset-0 flex items-center justify-center translate-x-4"><div className="w-4 h-4 bg-[#1B5234] rounded-full animate-ping absolute"></div><div className="w-4 h-4 bg-[#1B5234] rounded-full relative z-10"></div></div>
-                </div>
-              </div>
-            </div>
-            <div className="pt-6"><RHButton onClick={() => next(0)}>Experience AI Audio</RHButton></div>
-          </div>
-        )}
-        
-        {/* 7. HEAR THE DIFFERENCE */}
-        {step === 6 && (
+        {/* STEP 2: SOLUTION A - Bistro Sim */}
+        {step === 2 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
             <div className="mx-auto bg-white w-20 h-20 rounded-full flex items-center justify-center mb-2 shadow-sm border border-[#1B5234]/10"><Sparkles size={40} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Hear The Difference</h2>
-            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Modern technology uses AI to instantly suppress background noise. Tap the enhancements below to hear the clarity.</p>
-            <div className="w-full bg-white p-6 rounded-[3rem] border border-[#1B5234]/20 shadow-lg mt-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button onClick={() => handleSimChange('untreated')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Ear size={32} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-lg leading-tight">Standard<br/>Hearing</span></button>
-                <button onClick={() => handleSimChange('directional')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'directional' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Volume2 size={32} className={simMode === 'directional' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-lg leading-tight">Directional<br/>Focus</span></button>
-                <button onClick={() => handleSimChange('suppression')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Shield size={32} className={simMode === 'suppression' ? 'text-white' : ''}/><span className="font-bold text-lg leading-tight">Noise<br/>Suppression</span></button>
-                <button onClick={() => handleSimChange('active')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-xl scale-110' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Sparkles size={32} className={simMode === 'active' ? 'text-white' : ''}/><span className="font-bold text-lg leading-tight">AI Voice<br/>Clarity</span></button>
+            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Modern technology uses AI to instantly suppress background noise. Tap to experience the clarity.</p>
+            <div className="w-full bg-white p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-lg mt-4 max-w-2xl">
+              <div className="grid grid-cols-2 gap-6">
+                <button onClick={() => handleSimChange('untreated')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-4 ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Ear size={40} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-xl leading-tight">Standard<br/>Hearing</span></button>
+                <button onClick={() => handleSimChange('suppression')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-4 ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-xl scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Shield size={40} className={simMode === 'suppression' ? 'text-white' : ''}/><span className="font-bold text-xl leading-tight">Noise<br/>Suppression</span></button>
               </div>
             </div>
             <div className="pt-6"><RHButton onClick={() => next(0)}>Continue</RHButton></div>
           </div>
         )}
 
-        {/* 8. WEARABLES DASHBOARD */}
-        {step === 7 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
-            <h2 className="text-5xl italic text-[#3E3E3E] mb-6">High-Performance Wearables</h2>
-            <div className="w-full flex flex-col md:flex-row gap-8 bg-white p-8 rounded-[3rem] border border-[#1B5234]/10 shadow-lg">
-              <div className="flex flex-col gap-4 flex-1">
-                {[
-                  { icon: <Wifi size={32}/>, title: "Bluetooth Stream", desc: "Stream phone calls, podcasts, and music directly into your ears with pristine, zero-latency fidelity. Your phone stays in your pocket.", glow: "bg-blue-400" },
-                  { icon: <Battery size={32}/>, title: "All-Day Battery", desc: "Forget tiny batteries. Drop them in the magnetic case at night and enjoy up to 24 hours of continuous AI processing on a single charge.", glow: "bg-green-400" },
-                  { icon: <Activity size={32}/>, title: "Health Tracking", desc: "Built-in biometric sensors track your physical steps, heart rate, and overall cognitive engagement throughout the day.", glow: "bg-red-400" }
-                ].map((tab, idx) => (
-                  <button key={idx} onClick={() => setActiveWearableTab(idx)} className={`p-6 rounded-3xl flex items-center gap-4 transition-all duration-300 border-2 text-left ${activeWearableTab === idx ? 'bg-[#F9F8F4] border-[#1B5234] shadow-sm' : 'bg-transparent border-transparent hover:bg-gray-50 opacity-60'}`}>
-                    <div className={`${activeWearableTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.icon}</div>
-                    <span className={`font-bold text-xl ${activeWearableTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.title}</span>
-                  </button>
-                ))}
+        {/* STEP 3: PROBLEM B - Media Check */}
+        {step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV volume frequently cause disagreements, or do you find yourself needing captions to follow the dialogue?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely / Never</RHButton></div></div>)}
+        
+        {/* STEP 4: SOLUTION B - Spot Tech & Wearables */}
+        {step === 4 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-4xl">
+            <h2 className="text-5xl italic text-[#3E3E3E] mb-6">Invisible Tech & Connectivity</h2>
+            <div className="w-full flex flex-col md:flex-row gap-6">
+              <div className="flex-1 space-y-6">
+                <div onClick={() => setActiveTechTab(0)} className={`p-6 rounded-[2rem] border-2 cursor-pointer transition-all ${activeTechTab === 0 ? 'bg-white border-[#1B5234] shadow-md' : 'bg-[#E8E4DB]/30 border-transparent hover:bg-white/50 opacity-70'}`}>
+                  <div className="flex items-center gap-4 mb-2"><Ear className="text-[#1B5234]" size={28}/><h3 className="text-2xl font-bold text-[#3E3E3E]">Micro-RIC</h3></div>
+                  <p className="font-light opacity-80 leading-snug">Sits invisibly behind the ear. Streams TV and phone audio directly via Bluetooth.</p>
+                </div>
+                <div onClick={() => setActiveTechTab(1)} className={`p-6 rounded-[2rem] border-2 cursor-pointer transition-all ${activeTechTab === 1 ? 'bg-white border-[#1B5234] shadow-md' : 'bg-[#E8E4DB]/30 border-transparent hover:bg-white/50 opacity-70'}`}>
+                  <div className="flex items-center gap-4 mb-2"><Ear className="text-[#1B5234]" size={28}/><h3 className="text-2xl font-bold text-[#3E3E3E]">Custom ITE</h3></div>
+                  <p className="font-light opacity-80 leading-snug">Molded to your anatomy. Sits deep within the ear canal, 100% hidden from view.</p>
+                </div>
               </div>
-              <div className="flex-[1.5] bg-[#F9F8F4] rounded-3xl p-10 flex flex-col items-center justify-center text-center border border-[#E8E4DB] relative overflow-hidden">
-                <div className={`absolute top-0 right-0 w-64 h-64 ${['bg-blue-400','bg-green-400','bg-red-400'][activeWearableTab]} rounded-full blur-[80px] opacity-20 transition-colors duration-700`}></div>
-                <div className="text-[#1B5234] mb-8 animate-fade-in">{[<Wifi size={64}/>, <Battery size={64}/>, <Activity size={64}/>][activeWearableTab]}</div>
-                <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4 animate-fade-in">{["Bluetooth Stream", "All-Day Battery", "Health Tracking"][activeWearableTab]}</h3>
-                <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/80 animate-fade-in">{["Stream phone calls, podcasts, and music directly into your ears with pristine fidelity.", "Drop them in the magnetic case at night and enjoy up to 24 hours of continuous processing.", "Built-in biometric sensors track your physical steps, heart rate, and cognitive engagement."][activeWearableTab]}</p>
+              <div className="flex-[1.2] bg-[#1B5234] text-white rounded-[3rem] p-10 flex flex-col justify-center shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-400 rounded-full blur-[100px] opacity-20"></div>
+                <h3 className="text-3xl font-bold mb-6 flex items-center gap-3"><Wifi size={32}/> Bluetooth Streaming</h3>
+                <p className="text-xl font-light leading-relaxed opacity-90 mb-8">Solve the TV volume problem permanently. Stream pristine audio, phone calls, and music directly into your invisible device with zero latency.</p>
+                <div className="flex gap-6 opacity-80">
+                  <div className="flex items-center gap-2"><BatteryCharging size={20}/> <span>24hr Battery</span></div>
+                  <div className="flex items-center gap-2"><Activity size={20}/> <span>Health Tracking</span></div>
+                </div>
               </div>
             </div>
-            <div className="pt-8"><RHButton onClick={() => next(0)}>View My Results</RHButton></div>
+            <div className="pt-6"><RHButton onClick={() => next(0)}>Continue</RHButton></div>
           </div>
         )}
-        
-        {/* 9. THE FORK (Reveal) */}
-        {step === 8 && (
+
+        {/* STEP 5: PROBLEM C - Social Check */}
+        {step === 5 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">No, I never avoid social situations</button></div></div>)}
+
+        {/* STEP 6: SOLUTION C - Cognitive Relief & AI Clarity */}
+        {step === 6 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
+            <h2 className="text-5xl italic text-[#3E3E3E] mb-6">The Cognitive Relief</h2>
+            <div className="w-full flex flex-col md:flex-row gap-6 bg-white p-8 rounded-[3rem] border border-[#1B5234]/10 shadow-lg items-center">
+              <div className="flex-1 bg-[#F9F8F4] rounded-2xl p-8 flex flex-col justify-center text-left border border-[#E8E4DB]">
+                <div className="text-[#1B5234] mb-6"><Brain size={40}/></div>
+                <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">The Cognitive Tax</h3>
+                <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/90">When you lose high frequencies, your brain works overtime to "fill in the blanks." This cognitive load is why socializing leaves you physically exhausted. You aren't imagining it.</p>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <p className="text-xl font-light mb-6 opacity-80">Experience total neural relief with AI Voice Clarity. The noise vanishes.</p>
+                <button onClick={() => handleSimChange('active')} className={`p-8 rounded-full transition-all duration-500 border-4 flex flex-col items-center gap-4 ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-2xl scale-110' : 'bg-white border-[#1B5234] text-[#1B5234] hover:bg-[#1B5234]/10'}`}>
+                  <Sparkles size={48} className={simMode === 'active' ? 'text-white' : ''}/>
+                  <span className="font-bold text-2xl uppercase tracking-widest">AI Voice Clarity</span>
+                </button>
+              </div>
+            </div>
+            <div className="pt-6"><RHButton onClick={() => next(0)}>View My Results</RHButton></div>
+          </div>
+        )}
+
+        {/* STEP 7: THE REVEAL */}
+        {step === 7 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl">
             <div className="mx-auto bg-white w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm border border-[#1B5234]/10"><UserCheck size={48} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#1B5234] mb-8">Your Listening Profile</h2>
@@ -296,7 +275,7 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your psychosocial baseline indicates elevated social friction. You are expanding a high amount of cognitive energy to stay connected in noise.</p>
+                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your psychosocial baseline indicates elevated social friction. You are expending a high amount of cognitive energy to stay connected in noise.</p>
                   <p className="font-bold text-xl text-[#3E3E3E] uppercase tracking-widest mb-2 mt-8">Your Next Step</p>
                   <p className="text-xl opacity-90 font-light">Explore <span className="font-bold text-[#1B5234]">Invisible AI Technology</span> to permanently reduce your cognitive tax and effortlessly restore clarity.</p>
                 </>
@@ -306,8 +285,8 @@ export default function App() {
           </div>
         )}
 
-        {/* 10. SCENE+ VAULT (Lead Capture) */}
-        {step === 9 && (
+        {/* STEP 8: SCENE+ VAULT */}
+        {step === 8 && (
           <div className="w-full max-w-3xl space-y-8 animate-fade-in text-left">
             <div className="bg-gradient-to-br from-gray-900 to-[#1B5234] p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
               <Award className="absolute -right-10 -bottom-10 text-white/10" size={200} />
@@ -409,7 +388,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 24. THE PHARMACY BAG STRATEGY */}
         {step === 24 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
             <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
@@ -442,7 +420,7 @@ export default function App() {
       </main>
       
       {/* Navigation */}
-      {step > 0 && step < 10 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
+      {step > 0 && step < 9 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
 
       {/* Enterprise Navigation */}
       {step >= 20 && (
