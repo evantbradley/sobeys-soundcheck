@@ -3,16 +3,16 @@ import {
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
   Play, Shield, Brain, Activity, CheckSquare, RefreshCw, 
   Clock, HeartPulse, Star, MapPin, Lock, X, Building, 
-  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, UserCheck, Award
+  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, UserCheck, Award, Ear
 } from 'lucide-react';
 
 const useAudioEngine = () => {
   const audioCtxRef = useRef(null);
   const oscillatorRef = useRef(null);
-  const noiseRef = useRef(null);
-  const cafeNoiseRef = useRef(null);
-  const filterRef = useRef(null);
+  const backgroundAudioRef = useRef(null);
   const speechIntervalRef = useRef(null);
+  const backgroundGainRef = useRef(null);
+  const speechUtteranceRef = useRef(null);
 
   const initAudio = () => {
     if (!audioCtxRef.current) { const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtxRef.current = new AudioContext(); }
@@ -21,8 +21,7 @@ const useAudioEngine = () => {
 
   const stopAll = () => {
     if (oscillatorRef.current) { oscillatorRef.current.stop(); oscillatorRef.current.disconnect(); }
-    if (noiseRef.current) { noiseRef.current.stop(); noiseRef.current.disconnect(); }
-    if (cafeNoiseRef.current) { cafeNoiseRef.current.stop(); cafeNoiseRef.current.disconnect(); }
+    if (backgroundAudioRef.current) { backgroundAudioRef.current.pause(); backgroundAudioRef.current.currentTime = 0; }
     clearInterval(speechIntervalRef.current);
     window.speechSynthesis.cancel();
   };
@@ -37,12 +36,12 @@ const useAudioEngine = () => {
 
   const startBabble = () => {
     initAudio(); stopAll();
-    const ctx = audioCtxRef.current; const bufferSize = 2 * ctx.sampleRate, buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate), output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.5; 
-    const noise = ctx.createBufferSource(); noise.buffer = buffer; noise.loop = true;
-    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600; 
-    const g = ctx.createGain(); g.gain.value = 0.5; 
-    noise.connect(filter); filter.connect(g); g.connect(ctx.destination); noise.start(); noiseRef.current = noise;
+    const audio = new Audio('https://actions.google.com/sounds/v1/crowds/restaurant_chatter.ogg');
+    audio.crossOrigin = "anonymous";
+    audio.loop = true;
+    audio.volume = 0.5;
+    audio.play().catch(e => console.log("Audio play failed", e));
+    backgroundAudioRef.current = audio;
   };
 
   const speakWord = (word) => {
@@ -50,34 +49,51 @@ const useAudioEngine = () => {
     utterance.rate = 0.85; utterance.pitch = 1; utterance.volume = 1; window.speechSynthesis.speak(utterance);
   };
 
-  // NOTE FOR TOMORROW: For the final production version, we will replace this synthesized noise 
-  // with a real .mp3 of a cafe. For the prototype demo, this DSP filter mimics the effect perfectly.
   const startCafeSimulation = (mode) => {
-    initAudio(); stopAll();
-    const ctx = audioCtxRef.current;
-    const bufferSize = 2 * ctx.sampleRate, buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate), output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.5; 
-    const noise = ctx.createBufferSource(); noise.buffer = buffer; noise.loop = true;
-    const filter = ctx.createBiquadFilter(); filterRef.current = filter;
-    const gainNode = ctx.createGain();
+    initAudio(); 
+    
+    // Manage background restaurant chatter
+    if (!backgroundAudioRef.current) {
+      const audio = new Audio('https://actions.google.com/sounds/v1/crowds/restaurant_chatter.ogg');
+      audio.crossOrigin = "anonymous";
+      audio.loop = true;
+      backgroundAudioRef.current = audio;
+      audio.play().catch(e => console.log(e));
+    } else if (backgroundAudioRef.current.paused) {
+      backgroundAudioRef.current.play().catch(e => console.log(e));
+    }
 
-    if (mode === 'untreated') { filter.type = 'lowpass'; filter.frequency.value = 800; gainNode.gain.value = 0.8; } 
-    else if (mode === 'directional') { filter.type = 'bandpass'; filter.frequency.value = 1200; gainNode.gain.value = 0.4; } 
-    else if (mode === 'active') { filter.type = 'highpass'; filter.frequency.value = 3000; gainNode.gain.value = 0.1; }
+    // Set volumes based on the 4 levels of tech
+    let bgVol = 0.8;
+    let speechVol = 0.2;
+    let speechPitch = 0.8;
 
-    noise.connect(filter); filter.connect(gainNode); gainNode.connect(ctx.destination);
-    noise.start(); cafeNoiseRef.current = noise;
+    if (mode === 'untreated') { bgVol = 1.0; speechVol = 0.2; speechPitch = 0.8; } 
+    else if (mode === 'directional') { bgVol = 0.6; speechVol = 0.5; speechPitch = 0.9; } 
+    else if (mode === 'suppression') { bgVol = 0.3; speechVol = 0.8; speechPitch = 1.0; }
+    else if (mode === 'active') { bgVol = 0.05; speechVol = 1.0; speechPitch = 1.1; }
 
-    let words = ["So then I told him...", "We should order the wine.", "Did you hear about the kids?"];
-    let wordIndex = 0;
-    speechIntervalRef.current = setInterval(() => {
-      const utterance = new SpeechSynthesisUtterance(words[wordIndex]);
-      utterance.rate = 0.9;
-      utterance.volume = mode === 'untreated' ? 0.3 : (mode === 'directional' ? 0.7 : 1.0);
-      utterance.pitch = mode === 'untreated' ? 0.8 : 1.1; 
-      window.speechSynthesis.speak(utterance);
-      wordIndex = (wordIndex + 1) % words.length;
-    }, 3500);
+    backgroundAudioRef.current.volume = bgVol;
+
+    // Manage continuous speech synthesis
+    window.speechSynthesis.cancel(); // Stop current speech to adjust instantly
+    
+    const longSentence = "I was walking down to the market the other day, and the weather was absolutely beautiful. The sun was shining, a light breeze was blowing, and I ran into an old friend from university. We ended up chatting for over an hour about our travel plans for the summer, the new restaurants opening downtown, and how much the neighborhood has changed over the past few years.";
+    
+    const utterance = new SpeechSynthesisUtterance(longSentence);
+    utterance.rate = 0.9;
+    utterance.volume = speechVol;
+    utterance.pitch = speechPitch;
+    
+    // Loop the speech when it finishes
+    utterance.onend = () => {
+      if (backgroundAudioRef.current && !backgroundAudioRef.current.paused) {
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+    
+    speechUtteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
   };
 
   return { playTone, startBabble, speakWord, startCafeSimulation, stopAll, initAudio };
@@ -93,11 +109,11 @@ export default function App() {
   const [linkScenePlus, setLinkScenePlus] = useState(false);
   const [flippedMyths, setFlippedMyths] = useState({ 1: false, 2: false });
   const [selectedClinic, setSelectedClinic] = useState(null);
+  const [simMode, setSimMode] = useState('untreated');
   
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   
-  // Scoring System for Healthy Off-Ramp
   const [frictionScore, setFrictionScore] = useState(0);
 
   const audio = useAudioEngine();
@@ -109,6 +125,14 @@ export default function App() {
   const frequencies = [1000, 2000, 4000, 8000];
   const bistroWords = [{ correct: "Park", options: ["Park", "Bark", "Dark"] }, { correct: "Time", options: ["Dime", "Time", "Chime"] }, { correct: "Base", options: ["Face", "Lace", "Base"] }, { correct: "Coat", options: ["Goat", "Coat", "Boat"] }, { correct: "Sure", options: ["Pure", "Lure", "Sure"] }];
   const clinics = [{ id: 1, name: "Elite Audiology Group", distance: "1.2 miles away", description: "Premium partner clinic. Secure routing & readiness scoring enabled.", sponsored: true, image: "[ Elite ]" }, { id: 2, name: "ClearPath Hearing Specialists", distance: "3.4 miles away", description: "Comprehensive diagnostics and personalized care plans.", sponsored: false, image: "[ ClearPath ]" }, { id: 3, name: "Sound & Life Center", distance: "5.0 miles away", description: "Family-owned clinic serving the community for over 20 years.", sponsored: false, image: "[ SoundLife ]" }];
+
+  // Auto-play the cafe simulation when reaching step 16
+  useEffect(() => {
+    if (step === 16) {
+      setSimMode('untreated');
+      audio.startCafeSimulation('untreated');
+    }
+  }, [step]);
 
   const startSweep = () => { audio.initAudio(); setIsPlaying(true); setToneState({ freqIndex: 0, currentVol: 0.15, attempt: 0 }); triggerTone(0, 0.15, 0); };
   const triggerTone = (fIndex, vol, attempt) => {
@@ -129,12 +153,7 @@ export default function App() {
       const nextStep = bistroStep + 1; setBistroStep(nextStep); setTimeout(() => { audio.speakWord(bistroWords[nextStep].correct); }, 1500); 
     } else { 
       audio.stopAll(); setIsPlaying(false); 
-      // HEALTHY OFF-RAMP LOGIC
-      if (frictionScore === 0) {
-        setStep(18); // Jump to healthy congratulations screen
-      } else {
-        setStep(9);  // Continue to Cognitive Tax
-      }
+      if (frictionScore === 0) { setStep(18); } else { setStep(9); }
     } 
   };
 
@@ -150,6 +169,11 @@ export default function App() {
   };
   const back = () => { audio.stopAll(); setIsPlaying(false); setStep(s => Math.max(0, s - 1)); };
 
+  const handleSimChange = (mode) => {
+    setSimMode(mode);
+    audio.startCafeSimulation(mode);
+  }
+
   const RHButton = ({ children, onClick, variant="p", className="", disabled=false }) => (
     <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
   );
@@ -159,7 +183,7 @@ export default function App() {
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
       
-      {/* Enterprise Login Trigger - HIGH VISIBILITY */}
+      {/* Enterprise Login Trigger */}
       {step < 20 && (
         <div onClick={() => setShowPinModal(true)} className="fixed top-6 right-8 z-50 flex items-center gap-2 text-[#1B5234] font-sans font-bold text-sm tracking-widest uppercase cursor-pointer hover:opacity-70 transition-opacity bg-white/50 px-4 py-2 rounded-full backdrop-blur-sm border border-[#1B5234]/20 shadow-sm">
           <Lock size={16} /> Corporate Partner Login
@@ -171,11 +195,9 @@ export default function App() {
 
       <main className="max-w-4xl w-full flex flex-col justify-center items-center relative z-10 pb-12">
 
-        {/* --- LAYER 1: PATIENT JOURNEY (0-19) --- */}
         {step === 0 && (
           <div className="space-y-6 animate-fade-in relative w-full flex flex-col items-center">
-            {/* SOBEYS OFFICIAL LOGO */}
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Sobeys_logo.svg/1200px-Sobeys_logo.svg.png" alt="Sobeys Logo" className="h-24 mb-6 object-contain" />
+            <img src="https://logo.clearbit.com/sobeys.com" alt="Sobeys Logo" className="h-20 mb-6 object-contain shadow-sm rounded-xl" onError={(e) => { e.target.onerror = null; e.target.src="https://upload.wikimedia.org/wikipedia/en/thumb/8/87/Sobeys_logo.svg/512px-Sobeys_logo.svg.png" }} />
             <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-2">Hearing Health</h1>
             <p className="text-[#3E3E3E] uppercase tracking-[0.2em] text-sm font-bold font-sans flex items-center gap-2">Powered by Soundcheck <Sparkles size={14} className="text-[#1B5234]"/></p>
             <div className="pt-12"><RHButton onClick={() => next(0)}>Begin Your Experience</RHButton></div>
@@ -200,37 +222,35 @@ export default function App() {
         {step === 12 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><Activity size={48} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The "Use It or Lose It" Principle</h2><p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">When your auditory nerve stops sending certain sound frequencies to the brain, the speech-processing center actually begins to shrink. <br/><br/>This is <span className="font-bold">Auditory Deprivation</span>. Treating hearing loss early preserves your brain's ability to understand words.</p><RHButton onClick={() => next(0)} className="mt-8">Next</RHButton></div>)}
         {step === 13 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><HeartPulse size={48} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The Hidden Cost of Isolation</h2><p className="text-2xl font-light leading-relaxed">When conversation becomes exhausting, we naturally start to withdraw. <br/><br/>This social isolation is linked to a significantly higher risk of cognitive decline and dementia.</p><RHButton onClick={() => next(0)} className="mt-8">See The Solution</RHButton></div>)}
         
-        {step === 14 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light">Spot the Technology.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={() => next(0)}><p className="font-bold text-xl mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER: Sleek RIC Device behind ear ]</p><p className="text-lg opacity-70">Insert actual high-res image of modern Receiver-In-Canal hearing aid.</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic text-lg">Tap Image to Reveal</span></div></div>)}
-        {step === 15 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light italic">Invisible Sophistication.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={() => next(0)}><p className="font-bold text-xl mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER: Custom ITE Device inside ear ]</p><p className="text-lg opacity-70">Insert actual high-res image of invisible Custom In-The-Ear device.</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic text-lg">Tap Image to Continue</span></div></div>)}
+        {step === 14 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light">Spot the Technology.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-lg p-8 relative overflow-hidden group" onClick={() => next(0)}><img src="https://images.pexels.com/photos/7408101/pexels-photo-7408101.jpeg?auto=compress&cs=tinysrgb&w=800" alt="Modern RIC Device" className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-8 text-left"><p className="text-white font-bold text-2xl drop-shadow-md">Receiver-in-Canal (RIC)</p><p className="text-white/90 text-lg drop-shadow-md">Sits invisibly behind the ear, delivering pristine audio clarity.</p></div></div></div>)}
+        {step === 15 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light italic">Invisible Sophistication.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-lg p-8 relative overflow-hidden group" onClick={() => next(0)}><img src="https://images.pexels.com/photos/8099158/pexels-photo-8099158.jpeg?auto=compress&cs=tinysrgb&w=800" alt="Invisible Custom Device" className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-8 text-left"><p className="text-white font-bold text-2xl drop-shadow-md">Custom In-The-Ear</p><p className="text-white/90 text-lg drop-shadow-md">Molded perfectly to your anatomy. Completely hidden.</p></div></div></div>)}
         
-        {/* INTERACTIVE CAFE SIMULATOR */}
+        {/* INTERACTIVE CAFE SIMULATOR - 4 BUTTON PROGRESSION */}
         {step === 16 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
-            <div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-4 shadow-inner"><Sparkles size={48} className="text-[#1B5234]" /></div>
+          <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
+            <div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-2 shadow-inner"><Sparkles size={40} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Hear The Difference</h2>
-            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-8">Modern technology doesn't just make things louder. Built-in AI scans your environment 500 times per second to isolate human connection from the chaos.</p>
-            <div className="w-full bg-[#E8E4DB]/50 p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-sm mt-8">
-              <p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mb-6 text-center">Tap to Experience</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onClick={() => audio.startCafeSimulation('untreated')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#3E3E3E]/30 flex flex-col items-center gap-3 active:scale-95"><Volume2 size={32} className="text-[#3E3E3E]/50"/><span className="font-bold text-xl">Untreated</span><span className="text-sm font-light opacity-90 text-center">High cognitive tax. Exhausting noise.</span></button>
-                <button onClick={() => audio.startCafeSimulation('directional')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#1B5234]/50 flex flex-col items-center gap-3 active:scale-95"><Headphones size={32} className="text-[#1B5234]"/><span className="font-bold text-xl">Directional Focus</span><span className="text-sm font-light opacity-90 text-center">Background drops. Speech lifts.</span></button>
-                <button onClick={() => audio.startCafeSimulation('active')} className="p-6 rounded-3xl bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] transition-all duration-300 border-2 border-[#1B5234] flex flex-col items-center gap-3 shadow-lg active:scale-95"><Sparkles size={32} className="text-[#E8E4DB]"/><span className="font-bold text-xl">Active Clarity</span><span className="text-sm font-light opacity-100 text-center">Pristine isolation. Effortless connection.</span></button>
+            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Modern technology uses AI to instantly suppress background noise and lift human speech. Tap the enhancements below to experience it live.</p>
+            <div className="w-full bg-[#E8E4DB]/50 p-6 rounded-[3rem] border border-[#1B5234]/20 shadow-sm mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <button onClick={() => handleSimChange('untreated')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-2 ${simMode === 'untreated' ? 'bg-white border-[#1B5234] shadow-md scale-105' : 'bg-[#F9F8F4] border-transparent hover:bg-white text-[#3E3E3E]/70'}`}><Ear size={28} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-lg leading-tight">Untreated<br/>Hearing</span></button>
+                <button onClick={() => handleSimChange('directional')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-2 ${simMode === 'directional' ? 'bg-white border-[#1B5234] shadow-md scale-105' : 'bg-[#F9F8F4] border-transparent hover:bg-white text-[#3E3E3E]/70'}`}><Volume2 size={28} className={simMode === 'directional' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-lg leading-tight">Directional<br/>Focus</span></button>
+                <button onClick={() => handleSimChange('suppression')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-2 ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-[#F9F8F4] border-transparent hover:bg-white text-[#3E3E3E]/70'}`}><Shield size={28} className={simMode === 'suppression' ? 'text-white' : ''}/><span className="font-bold text-lg leading-tight">Noise<br/>Suppression</span></button>
+                <button onClick={() => handleSimChange('active')} className={`p-4 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-2 ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-xl scale-110' : 'bg-[#F9F8F4] border-transparent hover:bg-white text-[#3E3E3E]/70'}`}><Sparkles size={28} className={simMode === 'active' ? 'text-white' : ''}/><span className="font-bold text-lg leading-tight">AI Voice<br/>Clarity</span></button>
               </div>
             </div>
-            <div className="pt-8"><RHButton onClick={() => next(0)}>Continue</RHButton></div>
+            <div className="pt-6"><RHButton onClick={() => next(0)}>Continue</RHButton></div>
           </div>
         )}
 
         {step === 17 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-5xl italic mb-12">High-Performance Wearables</h2><div className="grid grid-cols-3 gap-8 text-[#1B5234]"><div className="flex flex-col items-center gap-4"><Smartphone size={48}/><span className="text-sm uppercase tracking-widest font-bold">Bluetooth Stream</span></div><div className="flex flex-col items-center gap-4"><BatteryCharging size={48}/><span className="text-sm uppercase tracking-widest font-bold">All-Day Battery</span></div><div className="flex flex-col items-center gap-4"><Activity size={48}/><span className="text-sm uppercase tracking-widest font-bold">Health Tracking</span></div></div><RHButton onClick={() => setStep(19)} className="mt-16">View My Results</RHButton></div>)}
         
-        {/* STEP 18: HEALTHY OFF-RAMP (Congratulations) */}
+        {/* STEP 18: HEALTHY OFF-RAMP */}
         {step === 18 && (
           <div className="space-y-8 animate-fade-in w-full max-w-2xl">
             <div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><UserCheck size={48} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#1B5234]">Exceptional Baseline</h2>
-            <p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">
-              Great news! Your responses indicate a very low level of social friction and excellent speech-in-noise processing. Your hearing health is currently performing exceptionally well.
-            </p>
+            <p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">Great news! Your responses indicate a very low level of social friction and excellent speech-in-noise processing. Your hearing health is currently performing exceptionally well.</p>
             <RHButton onClick={() => setStep(19)} className="mt-8 text-xl">Save My Baseline</RHButton>
           </div>
         )}
@@ -270,7 +290,7 @@ export default function App() {
               <div className={`transition-all duration-500 overflow-hidden ${(selectedClinic || frictionScore === 0) ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
                 <div className="bg-white p-6 rounded-3xl shadow-md border-2 border-[#1B5234]/20 space-y-6">
                   
-                  {/* SCENE+ INTEGRATION (The Sobeys Trojan Horse) */}
+                  {/* SCENE+ INTEGRATION */}
                   <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 rounded-2xl text-white shadow-inner flex flex-col gap-4 relative overflow-hidden">
                     <Award className="absolute -right-4 -bottom-4 text-white/10" size={100} />
                     <div className="flex items-center gap-3 relative z-10">
@@ -287,7 +307,15 @@ export default function App() {
                   </div>
 
                   <div className="flex gap-4 items-start"><button onClick={() => setConsentGiven(!consentGiven)} className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-[#1B5234]" /> : <div className="w-7 h-7 border-2 border-[#3E3E3E] rounded" />}</button><p className="text-sm font-light opacity-90 leading-snug font-sans">I consent to securely save my screening data and contact information{selectedClinic ? ` and share it with ${selectedClinic.name}` : ''}.</p></div>
-                  <div className="flex gap-4"><input type="text" placeholder="Full Name" className="w-1/2 bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" /><input type="tel" placeholder="Phone Number" className="w-1/2 bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" /></div>
+                  
+                  {/* UPDATED 4-FIELD GRID */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <input type="text" placeholder="First Name" className="w-full bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" />
+                    <input type="text" placeholder="Last Name" className="w-full bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" />
+                    <input type="tel" placeholder="Phone Number" className="w-full bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" />
+                    <input type="text" placeholder="Postal Code" className="w-full bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10 uppercase" maxLength={6} />
+                  </div>
+                  
                   <RHButton onClick={() => setStep(0)} className={`w-full !py-5 shadow-md text-xl ${!consentGiven ? 'opacity-50 cursor-not-allowed' : ''}`}>{selectedClinic ? `Connect with ${selectedClinic.name}` : 'Save Profile & Claim Points'}</RHButton>
                 </div>
               </div>
@@ -304,7 +332,7 @@ export default function App() {
             </div>
             <p className="text-2xl italic leading-relaxed text-[#3E3E3E]/80 border-l-4 border-[#1B5234] pl-6 mb-8">In 2022, the FDA legalized Over-The-Counter (OTC) hearing aids. U.S. pharmacies immediately converted aisle space into a high-margin consumer electronics category.</p>
             <div className="grid grid-cols-2 gap-8 pt-4">
-              <div className="bg-[#F9F8F4] p-8 rounded-3xl border border-[#E8E4DB]"><h4 className="font-bold text-xl mb-4 text-[#3E3E3E] flex items-center gap-2"><Building size={20} className="text-[#1B5234]"/> The Big 3 Movers</h4><ul className="space-y-4 font-light text-lg leading-relaxed text-[#3E3E3E]/90"><li>• <span className="font-bold">CVS Health:</span> Rapid rollout of dedicated optical & hearing hubs.</li><li>• <span className="font-bold">Walgreens:</span> Partnered with Lexie Hearing (Bose technology) in 8,000+ stores.</li><li>• <span className="font-bold">Best Buy:</span> Launched aggressive digital & physical hearing tech category.</li></ul></div>
+              <div className="bg-[#F9F8F4] p-8 rounded-3xl border border-[#E8E4DB]"><h4 className="font-bold text-xl mb-4 text-[#3E3E3E] flex items-center gap-2"><Building size={20} className="text-[#1B5234]"/> The Big 3 Movers</h4><ul className="space-y-4 font-light text-lg leading-relaxed text-[#3E3E3E]/90"><li>• <span className="font-bold">CVS Health:</span> Rapid rollout of dedicated optical & hearing hubs.</li><li>• <span className="font-bold">Walgreens:</span> Launched dedicated OTC hearing displays across 8,000+ stores.</li><li>• <span className="font-bold">Best Buy:</span> Launched aggressive digital & physical hearing tech category.</li></ul></div>
               <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-lg"><h4 className="font-bold text-xl mb-4 text-[#1B5234] flex items-center gap-2"><Target size={20}/> The Economics</h4><ul className="space-y-4 font-light text-lg leading-relaxed text-[#3E3E3E]/90"><li>• Zero clinical staffing required.</li><li>• Boxed devices ranging from $299 to $999.</li><li>• Immediate monetization of existing 65+ pharmacy foot traffic.</li></ul></div>
             </div>
           </div>
