@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
   Play, Shield, Brain, Activity, CheckSquare, RefreshCw, 
   Clock, HeartPulse, Star, MapPin, Lock, X, Building, 
-  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign
+  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, UserCheck, Award
 } from 'lucide-react';
 
 const useAudioEngine = () => {
@@ -50,6 +50,8 @@ const useAudioEngine = () => {
     utterance.rate = 0.85; utterance.pitch = 1; utterance.volume = 1; window.speechSynthesis.speak(utterance);
   };
 
+  // NOTE FOR TOMORROW: For the final production version, we will replace this synthesized noise 
+  // with a real .mp3 of a cafe. For the prototype demo, this DSP filter mimics the effect perfectly.
   const startCafeSimulation = (mode) => {
     initAudio(); stopAll();
     const ctx = audioCtxRef.current;
@@ -88,12 +90,16 @@ export default function App() {
   const [toneActive, setToneActive] = useState(false);
   const [bistroStep, setBistroStep] = useState(0);
   const [consentGiven, setConsentGiven] = useState(false);
+  const [linkScenePlus, setLinkScenePlus] = useState(false);
   const [flippedMyths, setFlippedMyths] = useState({ 1: false, 2: false });
   const [selectedClinic, setSelectedClinic] = useState(null);
   
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   
+  // Scoring System for Healthy Off-Ramp
+  const [frictionScore, setFrictionScore] = useState(0);
+
   const audio = useAudioEngine();
   const toneTimerRef = useRef(null);
 
@@ -117,7 +123,20 @@ export default function App() {
   };
 
   const startBistro = () => { audio.initAudio(); window.speechSynthesis.speak(new SpeechSynthesisUtterance('')); audio.startBabble(); setIsPlaying(true); setTimeout(() => { audio.speakWord(bistroWords[0].correct); }, 1500); };
-  const handleBistroAnswer = () => { if (bistroStep < 4) { const nextStep = bistroStep + 1; setBistroStep(nextStep); setTimeout(() => { audio.speakWord(bistroWords[nextStep].correct); }, 1500); } else { audio.stopAll(); setIsPlaying(false); setStep(9); } };
+  
+  const handleBistroAnswer = () => { 
+    if (bistroStep < 4) { 
+      const nextStep = bistroStep + 1; setBistroStep(nextStep); setTimeout(() => { audio.speakWord(bistroWords[nextStep].correct); }, 1500); 
+    } else { 
+      audio.stopAll(); setIsPlaying(false); 
+      // HEALTHY OFF-RAMP LOGIC
+      if (frictionScore === 0) {
+        setStep(18); // Jump to healthy congratulations screen
+      } else {
+        setStep(9);  // Continue to Cognitive Tax
+      }
+    } 
+  };
 
   const handlePinSubmit = (e) => {
     e.preventDefault();
@@ -125,12 +144,14 @@ export default function App() {
     else { alert('Incorrect Access Code'); setPinInput(''); }
   };
 
-  const next = () => { audio.stopAll(); setIsPlaying(false); setStep(s => s + 1); };
+  const next = (points = 0) => { 
+    setFrictionScore(prev => prev + points);
+    audio.stopAll(); setIsPlaying(false); setStep(s => s + 1); 
+  };
   const back = () => { audio.stopAll(); setIsPlaying(false); setStep(s => Math.max(0, s - 1)); };
 
-  // SOBEYS PRIMARY GREEN: #1B5234
   const RHButton = ({ children, onClick, variant="p", className="", disabled=false }) => (
-    <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-lg font-light ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
+    <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
   );
 
   const bgClass = step < 20 ? "bg-[#F9F8F4] text-[#3E3E3E]" : "bg-white text-[#3E3E3E]";
@@ -138,77 +159,136 @@ export default function App() {
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
       
+      {/* Enterprise Login Trigger - HIGH VISIBILITY */}
+      {step < 20 && (
+        <div onClick={() => setShowPinModal(true)} className="fixed top-6 right-8 z-50 flex items-center gap-2 text-[#1B5234] font-sans font-bold text-sm tracking-widest uppercase cursor-pointer hover:opacity-70 transition-opacity bg-white/50 px-4 py-2 rounded-full backdrop-blur-sm border border-[#1B5234]/20 shadow-sm">
+          <Lock size={16} /> Corporate Partner Login
+        </div>
+      )}
+
       {step > 0 && step <= patientSteps && (<div className="fixed top-0 left-0 h-1.5 bg-[#E8E4DB] w-full z-50"><div className="h-full bg-[#1B5234] transition-all duration-700 ease-out" style={{ width: `${progress}%` }} /></div>)}
       {step < 20 && (<div className="fixed bottom-0 left-0 w-full text-center py-3 bg-[#F9F8F4]/90 backdrop-blur-sm z-40 pointer-events-none border-t border-[#3E3E3E]/10"><p className="text-[10px] uppercase tracking-[0.1em] text-[#3E3E3E]/70 font-sans font-bold flex items-center justify-center gap-2"><AlertCircle size={12}/> Soundcheck is an informational screening tool, not a diagnostic medical evaluation.</p></div>)}
-
-      {/* Enterprise Hidden Trigger */}
-      {step < 20 && (<div onClick={() => setShowPinModal(true)} className="fixed top-0 right-0 w-16 h-16 z-50 cursor-pointer opacity-0 hover:opacity-100 flex items-center justify-center bg-[#1B5234]/10 transition-opacity rounded-bl-3xl"><Lock size={16} className="text-[#1B5234]"/></div>)}
 
       <main className="max-w-4xl w-full flex flex-col justify-center items-center relative z-10 pb-12">
 
         {/* --- LAYER 1: PATIENT JOURNEY (0-19) --- */}
-        {step === 0 && (<div className="space-y-6 animate-fade-in relative w-full flex flex-col items-center"><h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight">Sobeys <span className="font-light">Hearing Health</span></h1><p className="text-[#3E3E3E] uppercase tracking-[0.2em] text-xs font-bold font-sans flex items-center gap-2">Powered by Soundcheck <Sparkles size={12} className="text-[#1B5234]"/></p><div className="pt-12"><RHButton onClick={next}>Begin Your Experience</RHButton></div></div>)}
-        {step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-xl font-light opacity-80">Does the TV remote often stay in your hand to adjust for "mumbles" or keep the volume higher than others prefer?</p><div className="flex justify-center gap-4"><RHButton onClick={next}>Frequently</RHButton><RHButton onClick={next} variant="s">Rarely</RHButton></div></div>)}
-        {step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-xl font-light opacity-80">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left">{["It requires a lot of concentration", "I catch most of it, but it's tiring", "I hear everything effortlessly"].map(item => (<button key={item} onClick={next} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl">{item}</button>))}</div></div>)}
-        {step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Distance Check</h2><p className="text-xl font-light opacity-80">If someone calls to you from another room, do you usually have to walk over to hear them clearly?</p><div className="flex justify-center gap-4"><RHButton onClick={next}>Yes, almost always</RHButton><RHButton onClick={next} variant="s">No, I hear them fine</RHButton></div></div>)}
-        {step === 4 && (<div className="space-y-8 w-full max-w-2xl animate-fade-in"><h2 className="text-4xl italic mb-8">What is your "go-to" phrase for repetition?</h2><div className="grid grid-cols-2 gap-4">{["Pardon me?", "What did you say?", "Say that again?", "I usually just nod along"].map(p => (<button key={p} onClick={next} className="border border-[#1B5234]/40 p-6 rounded-2xl italic text-lg hover:bg-[#1B5234] hover:text-white transition-all">{p}</button>))}</div></div>)}
-        {step === 5 && (<div className="space-y-12 max-w-2xl animate-fade-in"><div className="mx-auto w-20 h-[1px] bg-[#1B5234] mb-8" /><h2 className="text-4xl italic leading-relaxed">"What feels like a simple request for clarity can feel like conflict to a loved one."</h2><p className="text-xl font-light opacity-80">When we struggle to hear, frustration builds. Our tone often sounds sharp without us realizing it. It turns connection into conflict.</p><RHButton onClick={next}>Reflect & Continue</RHButton></div>)}
-        {step === 6 && (<div className="space-y-8 w-full max-w-2xl animate-fade-in"><h2 className="text-4xl leading-tight">If a modern, virtually invisible solution could effortlessly restore your clarity, where do you stand?</h2><div className="grid grid-cols-1 gap-4 text-left"><button onClick={next} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl border-2 border-transparent hover:border-[#1B5234]">I'm ready to see what's out there.</button><button onClick={next} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl border-2 border-transparent hover:border-[#1B5234]">I'm curious, but a bit hesitant.</button><button onClick={next} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl border-2 border-transparent hover:border-[#1B5234]">I'm just taking this check for fun.</button></div></div>)}
+        {step === 0 && (
+          <div className="space-y-6 animate-fade-in relative w-full flex flex-col items-center">
+            {/* SOBEYS OFFICIAL LOGO */}
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Sobeys_logo.svg/1200px-Sobeys_logo.svg.png" alt="Sobeys Logo" className="h-24 mb-6 object-contain" />
+            <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-2">Hearing Health</h1>
+            <p className="text-[#3E3E3E] uppercase tracking-[0.2em] text-sm font-bold font-sans flex items-center gap-2">Powered by Soundcheck <Sparkles size={14} className="text-[#1B5234]"/></p>
+            <div className="pt-12"><RHButton onClick={() => next(0)}>Begin Your Experience</RHButton></div>
+          </div>
+        )}
         
-        {step === 7 && (<div className="space-y-12 animate-fade-in flex flex-col items-center justify-center w-full"><h2 className="text-4xl">Adaptive Listening Check</h2><p className="text-xl font-light opacity-80 max-w-xl mx-auto">Tones will automatically play and adjust in volume.</p>{!isPlaying ? (<RHButton onClick={startSweep} className="mt-8">Start Sound Check</RHButton>) : (<div className="space-y-8 flex flex-col items-center mt-8"><div className="text-sm uppercase tracking-widest text-[#1B5234] font-bold">Testing Frequency {toneState.freqIndex + 1} of 4</div><button onMouseDown={handleToneHit} className={`w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-150 shadow-2xl ${toneActive ? 'border-[#1B5234] text-[#1B5234] hover:bg-[#1B5234] hover:text-[#F9F8F4] active:scale-90 animate-pulse' : 'border-[#E8E4DB] text-[#E8E4DB] cursor-default'}`}><span className="text-3xl font-light tracking-widest">I HEAR IT</span></button></div>)}</div>)}
-        {step === 8 && (<div className="space-y-12 animate-fade-in w-full max-w-2xl flex flex-col items-center"><h2 className="text-4xl">The Bistro Simulation</h2><p className="text-xl opacity-80">Identify the 5 words spoken through the background noise.</p>{!isPlaying ? (<button onClick={startBistro} className="mt-8 w-72 h-72 rounded-full bg-[#E8E4DB] text-[#3E3E3E] flex flex-col items-center justify-center shadow-xl hover:bg-[#1B5234] hover:text-white transition-all active:scale-95"><Volume2 size={48} className="mb-4" /><span className="text-2xl italic">Play Crowd Noise & Start</span></button>) : (<div className="w-full space-y-8 mt-8"><div className="text-sm uppercase tracking-widest text-[#1B5234] mb-8 font-bold">Word {bistroStep + 1} of 5</div><div className="grid grid-cols-3 gap-4 w-full">{bistroWords[bistroStep].options.map(w => (<button key={w} onClick={handleBistroAnswer} className="p-8 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#1B5234] hover:text-white transition-all text-2xl font-light shadow-sm border-2 border-transparent hover:border-white">{w}</button>))}</div></div>)}</div>)}
+        {step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV remote often stay in your hand to adjust for "mumbles" or keep the volume higher than others prefer?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely</RHButton></div></div>)}
+        {step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(2)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">It requires a lot of concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I hear everything effortlessly</button></div></div>)}
+        {step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Distance Check</h2><p className="text-2xl font-light opacity-90">If someone calls to you from another room, do you usually have to walk over to hear them clearly?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Yes, almost always</RHButton><RHButton onClick={() => next(0)} variant="s">No, I hear them fine</RHButton></div></div>)}
+        {step === 4 && (<div className="space-y-8 w-full max-w-2xl animate-fade-in"><h2 className="text-4xl italic mb-8">What is your "go-to" phrase for repetition?</h2><div className="grid grid-cols-2 gap-4"><button onClick={() => next(1)} className="border-2 border-[#1B5234]/40 p-6 rounded-2xl italic text-2xl hover:bg-[#1B5234] hover:text-white transition-all text-[#3E3E3E]">"Pardon me?"</button><button onClick={() => next(1)} className="border-2 border-[#1B5234]/40 p-6 rounded-2xl italic text-2xl hover:bg-[#1B5234] hover:text-white transition-all text-[#3E3E3E]">"What did you say?"</button><button onClick={() => next(1)} className="border-2 border-[#1B5234]/40 p-6 rounded-2xl italic text-2xl hover:bg-[#1B5234] hover:text-white transition-all text-[#3E3E3E]">"Say that again?"</button><button onClick={() => next(0)} className="border-2 border-[#1B5234]/40 p-6 rounded-2xl italic text-2xl hover:bg-[#1B5234] hover:text-white transition-all text-[#3E3E3E]">I never ask people to repeat</button></div></div>)}
+        {step === 5 && (<div className="space-y-12 max-w-2xl animate-fade-in"><div className="mx-auto w-20 h-[1px] bg-[#1B5234] mb-8" /><h2 className="text-4xl italic leading-relaxed text-[#1B5234]">"What feels like a simple request for clarity can feel like conflict to a loved one."</h2><p className="text-2xl font-light opacity-90">When we struggle to hear, frustration builds. Our tone often sounds sharp without us realizing it. It turns connection into conflict.</p><RHButton onClick={() => next(0)}>Reflect & Continue</RHButton></div>)}
+        {step === 6 && (<div className="space-y-8 w-full max-w-2xl animate-fade-in"><h2 className="text-4xl leading-tight">If a modern, virtually invisible solution could effortlessly restore your clarity, where do you stand?</h2><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl border-2 border-transparent hover:border-[#1B5234]">I'm ready to see what's out there.</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl border-2 border-transparent hover:border-[#1B5234]">I'm curious, but a bit hesitant.</button></div></div>)}
         
-        {step === 9 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-6"><Brain size={40} className="text-[#1B5234]" /></div><h2 className="text-5xl italic">The Cognitive Tax</h2><p className="text-xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">Did you know your ears collect sound, but <span className="font-bold">your brain actually listens?</span> <br/><br/>When you lose high frequencies, your brain works overtime to "fill in the blanks". This Cognitive Load is the reason socializing can leave you exhausted.</p><RHButton onClick={next} className="mt-8">Continue</RHButton></div>)}
+        {step === 7 && (<div className="space-y-12 animate-fade-in flex flex-col items-center justify-center w-full"><h2 className="text-4xl">Adaptive Listening Check</h2><p className="text-2xl font-light opacity-90 max-w-xl mx-auto">Tones will automatically play and adjust in volume.</p>{!isPlaying ? (<RHButton onClick={startSweep} className="mt-8">Start Sound Check</RHButton>) : (<div className="space-y-8 flex flex-col items-center mt-8"><div className="text-lg uppercase tracking-widest text-[#1B5234] font-bold">Testing Frequency {toneState.freqIndex + 1} of 4</div><button onMouseDown={handleToneHit} className={`w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-150 shadow-2xl ${toneActive ? 'border-[#1B5234] text-[#1B5234] hover:bg-[#1B5234] hover:text-[#F9F8F4] active:scale-90 animate-pulse' : 'border-[#E8E4DB] text-[#E8E4DB] cursor-default'}`}><span className="text-3xl font-light tracking-widest">I HEAR IT</span></button></div>)}</div>)}
+        {step === 8 && (<div className="space-y-12 animate-fade-in w-full max-w-2xl flex flex-col items-center"><h2 className="text-4xl">The Bistro Simulation</h2><p className="text-2xl opacity-90 font-light">Identify the 5 words spoken through the background noise.</p>{!isPlaying ? (<button onClick={startBistro} className="mt-8 w-72 h-72 rounded-full bg-[#E8E4DB] text-[#3E3E3E] flex flex-col items-center justify-center shadow-xl hover:bg-[#1B5234] hover:text-white transition-all active:scale-95"><Volume2 size={48} className="mb-4" /><span className="text-2xl italic">Play Crowd Noise & Start</span></button>) : (<div className="w-full space-y-8 mt-8"><div className="text-lg uppercase tracking-widest text-[#1B5234] mb-8 font-bold">Word {bistroStep + 1} of 5</div><div className="grid grid-cols-3 gap-4 w-full">{bistroWords[bistroStep].options.map(w => (<button key={w} onClick={handleBistroAnswer} className="p-8 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#1B5234] hover:text-white transition-all text-3xl font-light shadow-sm border-2 border-transparent hover:border-white">{w}</button>))}</div></div>)}</div>)}
         
-        {step === 10 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl italic mb-4">Modern Truths</h2><p className="text-lg opacity-80 mb-8 text-[#1B5234] font-bold">Tap both cards below to reveal the reality.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left"><div onClick={() => setFlippedMyths({...flippedMyths, 1: true})} className={`p-8 rounded-3xl cursor-pointer transition-all duration-500 min-h-[240px] flex flex-col justify-center relative overflow-hidden ${flippedMyths[1] ? 'bg-[#1B5234] text-white shadow-inner' : 'bg-[#E8E4DB] hover:bg-[#DAD4C7] shadow-md border-2 border-[#1B5234]/20'}`}>{flippedMyths[1] ? (<p className="text-xl font-light italic animate-fade-in">"Constantly asking 'pardon?' and withdrawing ages us far more than wearing a hidden micro-computer."</p>) : (<div className="animate-fade-in z-10"><p className="text-[#1B5234] font-bold text-sm uppercase tracking-widest mb-2">The Stigma</p><p className="text-2xl font-bold">"Treating my hearing will make me look older."</p><div className="absolute bottom-0 left-0 w-full bg-[#1B5234] text-white py-3 text-center font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2"><RefreshCw size={14}/> Tap to Reveal Truth</div></div>)}</div><div onClick={() => setFlippedMyths({...flippedMyths, 2: true})} className={`p-8 rounded-3xl cursor-pointer transition-all duration-500 min-h-[240px] flex flex-col justify-center relative overflow-hidden ${flippedMyths[2] ? 'bg-[#1B5234] text-white shadow-inner' : 'bg-[#E8E4DB] hover:bg-[#DAD4C7] shadow-md border-2 border-[#1B5234]/20'}`}>{flippedMyths[2] ? (<p className="text-xl font-light italic animate-fade-in">"Modern tech isn't about volume; it's about clarity. It uses AI to lift speech out of the noise."</p>) : (<div className="animate-fade-in z-10"><p className="text-[#1B5234] font-bold text-sm uppercase tracking-widest mb-2">The Misconception</p><p className="text-2xl font-bold">"Hearing tech just turns up the volume on everything."</p><div className="absolute bottom-0 left-0 w-full bg-[#1B5234] text-white py-3 text-center font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2"><RefreshCw size={14}/> Tap to Reveal Truth</div></div>)}</div></div><div className="pt-8"><RHButton onClick={next} disabled={!(flippedMyths[1] && flippedMyths[2])}>{flippedMyths[1] && flippedMyths[2] ? "Discover More" : "Read Cards to Continue"}</RHButton></div></div>)}
+        {step === 9 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><Brain size={48} className="text-[#1B5234]" /></div><h2 className="text-5xl italic">The Cognitive Tax</h2><p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">Did you know your ears collect sound, but <span className="font-bold">your brain actually listens?</span> <br/><br/>When you lose high frequencies, your brain works overtime to "fill in the blanks". This Cognitive Load is the reason socializing can leave you exhausted.</p><RHButton onClick={() => next(0)} className="mt-8">Continue</RHButton></div>)}
+        
+        {step === 10 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl italic mb-4">Modern Truths</h2><p className="text-xl opacity-90 mb-8 text-[#1B5234] font-bold">Tap both cards below to reveal the reality.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left"><div onClick={() => setFlippedMyths({...flippedMyths, 1: true})} className={`p-8 rounded-3xl cursor-pointer transition-all duration-500 min-h-[240px] flex flex-col justify-center relative overflow-hidden ${flippedMyths[1] ? 'bg-[#1B5234] text-white shadow-inner' : 'bg-[#E8E4DB] hover:bg-[#DAD4C7] shadow-md border-2 border-[#1B5234]/20'}`}>{flippedMyths[1] ? (<p className="text-2xl font-light italic animate-fade-in">"Constantly asking 'pardon?' and withdrawing ages us far more than wearing a hidden micro-computer."</p>) : (<div className="animate-fade-in z-10"><p className="text-[#1B5234] font-bold text-sm uppercase tracking-widest mb-2">The Stigma</p><p className="text-3xl font-bold">"Treating my hearing will make me look older."</p><div className="absolute bottom-0 left-0 w-full bg-[#1B5234] text-white py-3 text-center font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2"><RefreshCw size={14}/> Tap to Reveal Truth</div></div>)}</div><div onClick={() => setFlippedMyths({...flippedMyths, 2: true})} className={`p-8 rounded-3xl cursor-pointer transition-all duration-500 min-h-[240px] flex flex-col justify-center relative overflow-hidden ${flippedMyths[2] ? 'bg-[#1B5234] text-white shadow-inner' : 'bg-[#E8E4DB] hover:bg-[#DAD4C7] shadow-md border-2 border-[#1B5234]/20'}`}>{flippedMyths[2] ? (<p className="text-2xl font-light italic animate-fade-in">"Modern tech isn't about volume; it's about clarity. It uses AI to lift speech out of the noise."</p>) : (<div className="animate-fade-in z-10"><p className="text-[#1B5234] font-bold text-sm uppercase tracking-widest mb-2">The Misconception</p><p className="text-3xl font-bold">"Hearing tech just turns up the volume on everything."</p><div className="absolute bottom-0 left-0 w-full bg-[#1B5234] text-white py-3 text-center font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2"><RefreshCw size={14}/> Tap to Reveal Truth</div></div>)}</div></div><div className="pt-8"><RHButton onClick={() => next(0)} disabled={!(flippedMyths[1] && flippedMyths[2])}>{flippedMyths[1] && flippedMyths[2] ? "Discover More" : "Read Cards to Continue"}</RHButton></div></div>)}
 
-        {step === 11 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-6"><Clock size={40} className="text-[#1B5234]" /></div><h2 className="text-5xl italic">The Decade of Delay</h2><p className="text-xl font-light leading-relaxed">Did you know the average person struggles with hearing loss for <span className="font-bold text-[#1B5234]">7 to 10 years</span> before seeking help?<br/><br/>That is a decade of missed punchlines and misunderstood whispers. You don't get those years back.</p><RHButton onClick={next} className="mt-8">Continue</RHButton></div>)}
-        {step === 12 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-6"><Activity size={40} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The "Use It or Lose It" Principle</h2><p className="text-xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">When your auditory nerve stops sending certain sound frequencies to the brain, the speech-processing center actually begins to shrink. <br/><br/>This is <span className="font-bold">Auditory Deprivation</span>. Treating hearing loss early preserves your brain's ability to understand words.</p><RHButton onClick={next} className="mt-8">Next</RHButton></div>)}
-        {step === 13 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-6"><HeartPulse size={40} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The Hidden Cost of Isolation</h2><p className="text-xl font-light leading-relaxed">When conversation becomes exhausting, we naturally start to withdraw. <br/><br/>This social isolation is linked to a significantly higher risk of cognitive decline and dementia.</p><RHButton onClick={next} className="mt-8">See The Solution</RHButton></div>)}
+        {step === 11 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><Clock size={48} className="text-[#1B5234]" /></div><h2 className="text-5xl italic">The Decade of Delay</h2><p className="text-2xl font-light leading-relaxed">Did you know the average person struggles with hearing loss for <span className="font-bold text-[#1B5234]">7 to 10 years</span> before seeking help?<br/><br/>That is a decade of missed punchlines and misunderstood whispers. You don't get those years back.</p><RHButton onClick={() => next(0)} className="mt-8">Continue</RHButton></div>)}
+        {step === 12 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><Activity size={48} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The "Use It or Lose It" Principle</h2><p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">When your auditory nerve stops sending certain sound frequencies to the brain, the speech-processing center actually begins to shrink. <br/><br/>This is <span className="font-bold">Auditory Deprivation</span>. Treating hearing loss early preserves your brain's ability to understand words.</p><RHButton onClick={() => next(0)} className="mt-8">Next</RHButton></div>)}
+        {step === 13 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><HeartPulse size={48} className="text-[#1B5234]" /></div><h2 className="text-4xl italic">The Hidden Cost of Isolation</h2><p className="text-2xl font-light leading-relaxed">When conversation becomes exhausting, we naturally start to withdraw. <br/><br/>This social isolation is linked to a significantly higher risk of cognitive decline and dementia.</p><RHButton onClick={() => next(0)} className="mt-8">See The Solution</RHButton></div>)}
         
-        {step === 14 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light">Spot the Technology.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={next}><p className="font-bold text-lg mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER A ]</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic">Tap Image to Reveal</span></div></div>)}
-        {step === 15 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light italic">Invisible Sophistication.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={next}><p className="font-bold text-lg mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER B ]</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic">Tap Image to Continue</span></div></div>)}
+        {step === 14 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light">Spot the Technology.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={() => next(0)}><p className="font-bold text-xl mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER: Sleek RIC Device behind ear ]</p><p className="text-lg opacity-70">Insert actual high-res image of modern Receiver-In-Canal hearing aid.</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic text-lg">Tap Image to Reveal</span></div></div>)}
+        {step === 15 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl font-light italic">Invisible Sophistication.</h2><div className="w-full aspect-[21/9] bg-[#E8E4DB] rounded-[3rem] flex flex-col items-center justify-center italic text-[#3E3E3E]/50 border-2 border-transparent hover:border-[#1B5234] cursor-pointer shadow-sm p-8" onClick={() => next(0)}><p className="font-bold text-xl mb-2 text-[#3E3E3E]">[ IMAGE PLACEHOLDER: Custom ITE Device inside ear ]</p><p className="text-lg opacity-70">Insert actual high-res image of invisible Custom In-The-Ear device.</p><span className="mt-6 text-[#1B5234] font-bold underline not-italic text-lg">Tap Image to Continue</span></div></div>)}
         
         {/* INTERACTIVE CAFE SIMULATOR */}
         {step === 16 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
-            <div className="mx-auto bg-[#E8E4DB] w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-inner"><Sparkles size={40} className="text-[#1B5234]" /></div>
+            <div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-4 shadow-inner"><Sparkles size={48} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Hear The Difference</h2>
-            <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/80 text-center px-8">Modern technology doesn't just make things louder. Built-in AI scans your environment 500 times per second to isolate human connection from the chaos.</p>
+            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-8">Modern technology doesn't just make things louder. Built-in AI scans your environment 500 times per second to isolate human connection from the chaos.</p>
             <div className="w-full bg-[#E8E4DB]/50 p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-sm mt-8">
               <p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mb-6 text-center">Tap to Experience</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onClick={() => audio.startCafeSimulation('untreated')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#3E3E3E]/30 flex flex-col items-center gap-3 active:scale-95"><Volume2 size={24} className="text-[#3E3E3E]/50"/><span className="font-bold text-lg">Untreated</span><span className="text-xs font-light opacity-70 text-center">High cognitive tax. Exhausting noise.</span></button>
-                <button onClick={() => audio.startCafeSimulation('directional')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#1B5234]/50 flex flex-col items-center gap-3 active:scale-95"><Headphones size={24} className="text-[#1B5234]"/><span className="font-bold text-lg">Directional Focus</span><span className="text-xs font-light opacity-70 text-center">Background drops. Speech lifts.</span></button>
-                <button onClick={() => audio.startCafeSimulation('active')} className="p-6 rounded-3xl bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] transition-all duration-300 border-2 border-[#1B5234] flex flex-col items-center gap-3 shadow-lg active:scale-95"><Sparkles size={24} className="text-[#E8E4DB]"/><span className="font-bold text-lg">Active Clarity</span><span className="text-xs font-light opacity-90 text-center">Pristine isolation. Effortless connection.</span></button>
+                <button onClick={() => audio.startCafeSimulation('untreated')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#3E3E3E]/30 flex flex-col items-center gap-3 active:scale-95"><Volume2 size={32} className="text-[#3E3E3E]/50"/><span className="font-bold text-xl">Untreated</span><span className="text-sm font-light opacity-90 text-center">High cognitive tax. Exhausting noise.</span></button>
+                <button onClick={() => audio.startCafeSimulation('directional')} className="p-6 rounded-3xl bg-[#F9F8F4] text-[#3E3E3E] hover:bg-[#DAD4C7] transition-all duration-300 border-2 border-transparent focus:border-[#1B5234]/50 flex flex-col items-center gap-3 active:scale-95"><Headphones size={32} className="text-[#1B5234]"/><span className="font-bold text-xl">Directional Focus</span><span className="text-sm font-light opacity-90 text-center">Background drops. Speech lifts.</span></button>
+                <button onClick={() => audio.startCafeSimulation('active')} className="p-6 rounded-3xl bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] transition-all duration-300 border-2 border-[#1B5234] flex flex-col items-center gap-3 shadow-lg active:scale-95"><Sparkles size={32} className="text-[#E8E4DB]"/><span className="font-bold text-xl">Active Clarity</span><span className="text-sm font-light opacity-100 text-center">Pristine isolation. Effortless connection.</span></button>
               </div>
             </div>
-            <div className="pt-8"><RHButton onClick={next}>Continue</RHButton></div>
+            <div className="pt-8"><RHButton onClick={() => next(0)}>Continue</RHButton></div>
           </div>
         )}
 
-        {step === 17 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-4xl italic mb-12">High-Performance Wearables</h2><div className="grid grid-cols-3 gap-8 text-[#1B5234]"><div className="flex flex-col items-center gap-4"><Smartphone size={40}/><span className="text-sm uppercase tracking-widest font-bold">Bluetooth Stream</span></div><div className="flex flex-col items-center gap-4"><BatteryCharging size={40}/><span className="text-sm uppercase tracking-widest font-bold">All-Day Battery</span></div><div className="flex flex-col items-center gap-4"><Activity size={40}/><span className="text-sm uppercase tracking-widest font-bold">Health Tracking</span></div></div><RHButton onClick={next} className="mt-16">Meet the Founder</RHButton></div>)}
-        {step === 18 && (<div className="space-y-8 animate-fade-in w-full max-w-2xl"><div className="aspect-video w-full bg-[#E8E4DB] rounded-[3rem] flex items-center justify-center relative overflow-hidden group shadow-lg border-2 border-[#1B5234]/20"><Play size={64} className="text-[#1B5234]" /></div><h2 className="text-3xl italic leading-relaxed">"I hid them behind long hair for years. Now, I wear them proudly to stay connected."</h2><RHButton onClick={next}>View My Results</RHButton></div>)}
+        {step === 17 && (<div className="space-y-8 animate-fade-in w-full max-w-3xl"><h2 className="text-5xl italic mb-12">High-Performance Wearables</h2><div className="grid grid-cols-3 gap-8 text-[#1B5234]"><div className="flex flex-col items-center gap-4"><Smartphone size={48}/><span className="text-sm uppercase tracking-widest font-bold">Bluetooth Stream</span></div><div className="flex flex-col items-center gap-4"><BatteryCharging size={48}/><span className="text-sm uppercase tracking-widest font-bold">All-Day Battery</span></div><div className="flex flex-col items-center gap-4"><Activity size={48}/><span className="text-sm uppercase tracking-widest font-bold">Health Tracking</span></div></div><RHButton onClick={() => setStep(19)} className="mt-16">View My Results</RHButton></div>)}
+        
+        {/* STEP 18: HEALTHY OFF-RAMP (Congratulations) */}
+        {step === 18 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-2xl">
+            <div className="mx-auto bg-[#E8E4DB] w-24 h-24 rounded-full flex items-center justify-center mb-6"><UserCheck size={48} className="text-[#1B5234]" /></div>
+            <h2 className="text-5xl italic text-[#1B5234]">Exceptional Baseline</h2>
+            <p className="text-2xl font-light leading-relaxed text-left border-l-4 border-[#1B5234] pl-6">
+              Great news! Your responses indicate a very low level of social friction and excellent speech-in-noise processing. Your hearing health is currently performing exceptionally well.
+            </p>
+            <RHButton onClick={() => setStep(19)} className="mt-8 text-xl">Save My Baseline</RHButton>
+          </div>
+        )}
 
-        {/* STEP 19: LEAD GEN (CLINIC ROUTING) */}
+        {/* STEP 19: LEAD GEN (SCENE+ & CLINIC ROUTING) */}
         {step === 19 && (
           <div className="w-full max-w-5xl flex flex-col md:flex-row gap-8 animate-fade-in text-left relative">
-            <div className="flex-1 bg-[#E8E4DB]/50 rounded-[3rem] p-10 relative overflow-hidden flex flex-col border border-[#1B5234]/20 shadow-sm"><Shield className="absolute -top-6 -right-6 text-[#1B5234] opacity-10" size={120} /><h2 className="text-3xl italic text-[#1B5234] mb-6 relative z-10 font-bold">Your Baseline Insight</h2><p className="font-light text-lg leading-relaxed border-l-4 border-[#1B5234] pl-6 relative z-10 mb-8">Your profile indicates high <span className="font-bold">Social Friction</span> and difficulty isolating speech. You are working harder than necessary to stay connected.</p><div className="mt-auto relative z-10"><p className="text-sm font-bold uppercase tracking-widest text-[#3E3E3E] mb-2">Next Step:</p><p className="font-light opacity-80">Select a local certified partner to securely receive your Insight Map and explore invisible technology.</p></div></div>
-            <div className="flex-[1.2] flex flex-col gap-4">
-              <h3 className="text-2xl font-light mb-2">Sobeys Local Partner Network</h3>
-              <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                {clinics.map((clinic) => (
-                  <div key={clinic.id} onClick={() => setSelectedClinic(clinic)} className={`p-5 rounded-2xl cursor-pointer transition-all border-2 flex gap-4 items-center ${selectedClinic?.id === clinic.id ? 'bg-white border-[#1B5234] shadow-lg scale-[1.02]' : 'bg-white/60 border-transparent hover:bg-white'}`}>
-                    <div className="w-16 h-16 bg-[#E8E4DB] rounded-xl flex-shrink-0 flex items-center justify-center text-[8px] text-center italic text-[#3E3E3E]/50 font-bold">{clinic.image}</div>
-                    <div className="flex-1"><div className="flex justify-between items-start"><h4 className="font-bold text-lg leading-tight">{clinic.name}</h4>{clinic.sponsored && <span className="text-[10px] font-bold uppercase tracking-widest bg-[#1B5234] text-white px-2 py-1 rounded-md flex items-center gap-1"><Star size={10}/> Sponsor</span>}</div><p className="text-xs font-bold text-[#1B5234] flex items-center gap-1 mt-1 mb-1"><MapPin size={12}/> {clinic.distance}</p><p className="text-sm font-light opacity-80 leading-snug">{clinic.description}</p></div>
-                  </div>
-                ))}
+            <div className="flex-1 bg-[#E8E4DB]/50 rounded-[3rem] p-10 relative overflow-hidden flex flex-col border border-[#1B5234]/20 shadow-sm">
+              <Shield className="absolute -top-6 -right-6 text-[#1B5234] opacity-10" size={120} />
+              <h2 className="text-4xl italic text-[#1B5234] mb-6 relative z-10 font-bold">Your Insight Map</h2>
+              {frictionScore === 0 ? (
+                <p className="font-light text-2xl leading-relaxed border-l-4 border-[#1B5234] pl-6 relative z-10 mb-8 text-[#3E3E3E]">Your baseline indicates <span className="font-bold text-[#1B5234]">Zero Social Friction</span>. Maintain this healthy baseline and monitor for changes over time.</p>
+              ) : (
+                <p className="font-light text-2xl leading-relaxed border-l-4 border-[#1B5234] pl-6 relative z-10 mb-8 text-[#3E3E3E]">Your profile indicates elevated <span className="font-bold">Social Friction</span> and difficulty isolating speech. You are working harder than necessary to stay connected.</p>
+              )}
+              <div className="mt-auto relative z-10">
+                <p className="text-sm font-bold uppercase tracking-widest text-[#3E3E3E] mb-2">Next Step:</p>
+                <p className="font-light opacity-90 text-xl">{frictionScore === 0 ? "Save your secure profile to earn Scene+ points." : "Select a local certified partner to explore invisible technology."}</p>
               </div>
-              <div className={`transition-all duration-500 overflow-hidden ${selectedClinic ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
-                <div className="bg-white p-6 rounded-3xl shadow-md border-2 border-[#1B5234]/20">
-                  <div className="flex gap-4 items-start mb-4"><button onClick={() => setConsentGiven(!consentGiven)} className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={24} className="text-[#1B5234]" /> : <div className="w-6 h-6 border-2 border-[#3E3E3E] rounded" />}</button><p className="text-xs font-light opacity-80 leading-snug font-sans">I consent to securely share my screening data, readiness score, and contact information with <span className="font-bold">{selectedClinic?.name}</span>.</p></div>
-                  <div className="flex gap-4 mb-4"><input type="text" placeholder="Full Name" className="w-1/2 bg-[#F9F8F4] p-3 rounded-xl outline-none font-serif italic border border-[#3E3E3E]/10" /><input type="tel" placeholder="Phone Number" className="w-1/2 bg-[#F9F8F4] p-3 rounded-xl outline-none font-serif italic border border-[#3E3E3E]/10" /></div>
-                  <RHButton onClick={() => setStep(0)} className={`w-full !py-4 shadow-md ${!consentGiven ? 'opacity-50 cursor-not-allowed' : ''}`}>Connect with {selectedClinic?.name}</RHButton>
+            </div>
+            
+            <div className="flex-[1.2] flex flex-col gap-4">
+              {frictionScore > 0 && (
+                <>
+                  <h3 className="text-2xl font-light mb-2">Sobeys Local Partner Network</h3>
+                  <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {clinics.map((clinic) => (
+                      <div key={clinic.id} onClick={() => setSelectedClinic(clinic)} className={`p-5 rounded-2xl cursor-pointer transition-all border-2 flex gap-4 items-center ${selectedClinic?.id === clinic.id ? 'bg-white border-[#1B5234] shadow-lg scale-[1.02]' : 'bg-white/60 border-transparent hover:bg-white'}`}>
+                        <div className="w-16 h-16 bg-[#E8E4DB] rounded-xl flex-shrink-0 flex items-center justify-center text-[8px] text-center italic text-[#3E3E3E]/50 font-bold">{clinic.image}</div>
+                        <div className="flex-1"><div className="flex justify-between items-start"><h4 className="font-bold text-xl leading-tight">{clinic.name}</h4>{clinic.sponsored && <span className="text-[10px] font-bold uppercase tracking-widest bg-[#1B5234] text-white px-2 py-1 rounded-md flex items-center gap-1"><Star size={10}/> Sponsor</span>}</div><p className="text-sm font-bold text-[#1B5234] flex items-center gap-1 mt-1 mb-1"><MapPin size={12}/> {clinic.distance}</p><p className="text-sm font-light opacity-90 leading-snug">{clinic.description}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className={`transition-all duration-500 overflow-hidden ${(selectedClinic || frictionScore === 0) ? 'max-h-[800px] opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+                <div className="bg-white p-6 rounded-3xl shadow-md border-2 border-[#1B5234]/20 space-y-6">
+                  
+                  {/* SCENE+ INTEGRATION (The Sobeys Trojan Horse) */}
+                  <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-6 rounded-2xl text-white shadow-inner flex flex-col gap-4 relative overflow-hidden">
+                    <Award className="absolute -right-4 -bottom-4 text-white/10" size={100} />
+                    <div className="flex items-center gap-3 relative z-10">
+                      <div className="bg-white text-gray-900 p-2 rounded-lg font-bold text-sm tracking-widest uppercase shadow-md">Scene+</div>
+                      <h4 className="font-bold text-lg">Earn 50 Points Today</h4>
+                    </div>
+                    <div className="flex items-center gap-3 relative z-10">
+                      <button onClick={() => setLinkScenePlus(!linkScenePlus)} className="shrink-0">{linkScenePlus ? <CheckSquare size={28} className="text-white" /> : <div className="w-7 h-7 border-2 border-white/50 rounded bg-white/10 hover:bg-white/20 transition-colors" />}</button>
+                      <p className="text-sm font-light opacity-90">Link my Scene+ card to save my hearing baseline securely to my profile.</p>
+                    </div>
+                    {linkScenePlus && (
+                      <input type="text" placeholder="Enter 16-Digit Scene+ Card Number" className="w-full bg-white/10 text-white placeholder-white/50 p-4 rounded-xl outline-none font-mono text-lg border border-white/20 mt-2 relative z-10 tracking-widest" maxLength={16} />
+                    )}
+                  </div>
+
+                  <div className="flex gap-4 items-start"><button onClick={() => setConsentGiven(!consentGiven)} className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-[#1B5234]" /> : <div className="w-7 h-7 border-2 border-[#3E3E3E] rounded" />}</button><p className="text-sm font-light opacity-90 leading-snug font-sans">I consent to securely save my screening data and contact information{selectedClinic ? ` and share it with ${selectedClinic.name}` : ''}.</p></div>
+                  <div className="flex gap-4"><input type="text" placeholder="Full Name" className="w-1/2 bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" /><input type="tel" placeholder="Phone Number" className="w-1/2 bg-[#F9F8F4] p-4 rounded-xl outline-none font-serif italic text-lg border border-[#3E3E3E]/10" /></div>
+                  <RHButton onClick={() => setStep(0)} className={`w-full !py-5 shadow-md text-xl ${!consentGiven ? 'opacity-50 cursor-not-allowed' : ''}`}>{selectedClinic ? `Connect with ${selectedClinic.name}` : 'Save Profile & Claim Points'}</RHButton>
                 </div>
               </div>
             </div>
@@ -224,8 +304,8 @@ export default function App() {
             </div>
             <p className="text-2xl italic leading-relaxed text-[#3E3E3E]/80 border-l-4 border-[#1B5234] pl-6 mb-8">In 2022, the FDA legalized Over-The-Counter (OTC) hearing aids. U.S. pharmacies immediately converted aisle space into a high-margin consumer electronics category.</p>
             <div className="grid grid-cols-2 gap-8 pt-4">
-              <div className="bg-[#F9F8F4] p-8 rounded-3xl border border-[#E8E4DB]"><h4 className="font-bold text-xl mb-4 text-[#3E3E3E] flex items-center gap-2"><Building size={20} className="text-[#1B5234]"/> The Big 3 Movers</h4><ul className="space-y-3 font-light text-sm leading-relaxed"><li>• <span className="font-bold">CVS Health:</span> Rapid rollout of dedicated optical & hearing hubs.</li><li>• <span className="font-bold">Walgreens:</span> Partnered with Lexie Hearing (Bose technology) in 8,000+ stores.</li><li>• <span className="font-bold">Best Buy:</span> Launched aggressive digital & physical hearing tech category.</li></ul></div>
-              <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-lg"><h4 className="font-bold text-xl mb-4 text-[#1B5234] flex items-center gap-2"><Target size={20}/> The Economics</h4><ul className="space-y-3 font-light text-sm leading-relaxed"><li>• Zero clinical staffing required.</li><li>• Boxed devices ranging from $299 to $999.</li><li>• Immediate monetization of existing 65+ pharmacy foot traffic.</li></ul></div>
+              <div className="bg-[#F9F8F4] p-8 rounded-3xl border border-[#E8E4DB]"><h4 className="font-bold text-xl mb-4 text-[#3E3E3E] flex items-center gap-2"><Building size={20} className="text-[#1B5234]"/> The Big 3 Movers</h4><ul className="space-y-4 font-light text-lg leading-relaxed text-[#3E3E3E]/90"><li>• <span className="font-bold">CVS Health:</span> Rapid rollout of dedicated optical & hearing hubs.</li><li>• <span className="font-bold">Walgreens:</span> Partnered with Lexie Hearing (Bose technology) in 8,000+ stores.</li><li>• <span className="font-bold">Best Buy:</span> Launched aggressive digital & physical hearing tech category.</li></ul></div>
+              <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-lg"><h4 className="font-bold text-xl mb-4 text-[#1B5234] flex items-center gap-2"><Target size={20}/> The Economics</h4><ul className="space-y-4 font-light text-lg leading-relaxed text-[#3E3E3E]/90"><li>• Zero clinical staffing required.</li><li>• Boxed devices ranging from $299 to $999.</li><li>• Immediate monetization of existing 65+ pharmacy foot traffic.</li></ul></div>
             </div>
           </div>
         )}
@@ -233,11 +313,11 @@ export default function App() {
         {step === 21 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
              <div className="flex items-center gap-4 mb-8"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><Clock size={32} /></div><h2 className="text-4xl font-light">The Canadian Horizon</h2></div>
-            <p className="text-xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6">Canada is historically 2 to 3 years behind the FDA. The regulatory floodgates for OTC are cracking open right now.</p>
+            <p className="text-2xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6">Canada is historically 2 to 3 years behind the FDA. The regulatory floodgates for OTC are cracking open right now.</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Catalyst</p><h4 className="font-bold text-lg mb-2">Apple AirPods Approval</h4><p className="text-sm font-light opacity-80">Health Canada recently approved Apple's AirPods Pro 2 as a Class II medical hearing aid, normalizing self-fitting tech.</p></div>
-              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Demographic</p><h4 className="font-bold text-lg mb-2">10,000 Per Day</h4><p className="text-sm font-light opacity-80">The "Silver Tsunami" of Boomers turning 65 possess high disposable income and a severe aversion to traditional medical stigma.</p></div>
-              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Gap</p><h4 className="font-bold text-lg mb-2">80% Untreated</h4><p className="text-sm font-light opacity-80">A massive $10B+ market gap of individuals who refuse to visit a clinical audiologist but will buy a consumer device.</p></div>
+              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Catalyst</p><h4 className="font-bold text-xl mb-3">Apple AirPods Approval</h4><p className="text-lg font-light opacity-90">Health Canada recently approved Apple's AirPods Pro 2 as a Class II medical hearing aid, normalizing self-fitting tech.</p></div>
+              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Demographic</p><h4 className="font-bold text-xl mb-3">10,000 Per Day</h4><p className="text-lg font-light opacity-90">The "Silver Tsunami" of Boomers turning 65 possess high disposable income and a severe aversion to traditional medical stigma.</p></div>
+              <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#3E3E3E]/10"><p className="font-bold text-[#1B5234] mb-2 uppercase tracking-widest text-xs">The Gap</p><h4 className="font-bold text-xl mb-3">80% Untreated</h4><p className="text-lg font-light opacity-90">A massive $10B+ market gap of individuals who refuse to visit a clinical audiologist but will buy a consumer device.</p></div>
             </div>
           </div>
         )}
@@ -247,14 +327,14 @@ export default function App() {
             <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
               <div className="flex items-center gap-4"><div className="p-4 bg-red-800 text-white rounded-2xl"><AlertCircle size={32} /></div><div><h2 className="text-4xl font-light">The Shoppers Drug Mart Threat</h2><p className="text-sm uppercase tracking-widest text-red-800 font-bold mt-1">Competitive Urgency</p></div></div>
             </div>
-            <p className="text-xl font-light leading-relaxed mb-8">If Sobeys waits for full OTC legalization to build a hearing strategy, the competition will already own the patient data.</p>
+            <p className="text-2xl font-light leading-relaxed mb-8">If Sobeys waits for full OTC legalization to build a hearing strategy, the competition will already own the patient data.</p>
             <div className="bg-[#F9F8F4] p-8 rounded-[2rem] shadow-sm border border-red-800/30 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-2 bg-red-800 h-full"></div>
-              <h3 className="text-2xl font-bold mb-4 text-[#3E3E3E]">The Data Land Grab</h3>
-              <p className="font-light leading-relaxed opacity-80 mb-6">Shoppers Drug Mart and Loblaws are actively expanding their clinical footprint. The winner in the Canadian OTC market will not be the one with the best shelf space; it will be the retailer who captures the patient data <span className="font-bold text-red-800">before</span> the laws change.</p>
-              <div className="grid grid-cols-2 gap-6 pt-6 border-t border-[#E8E4DB]">
-                <div><h4 className="font-bold text-[#3E3E3E] mb-3 text-sm uppercase tracking-widest">Reactive Strategy</h4><p className="text-sm font-light opacity-80">Wait for Health Canada to fully legalize OTC, then buy inventory and hope customers walk down the right aisle.</p></div>
-                <div><h4 className="font-bold text-[#1B5234] mb-3 text-sm uppercase tracking-widest">Proactive Strategy</h4><p className="text-sm font-light opacity-80">Deploy Soundcheck now. Build a database of pre-qualified "Mild Loss" patients. Flip the switch and monetize instantly on Day 1 of legalization.</p></div>
+              <h3 className="text-3xl font-bold mb-4 text-[#3E3E3E]">The Data Land Grab</h3>
+              <p className="text-xl font-light leading-relaxed opacity-90 mb-6">Shoppers Drug Mart and Loblaws are actively expanding their clinical footprint. The winner in the Canadian OTC market will not be the one with the best shelf space; it will be the retailer who captures the patient data <span className="font-bold text-red-800">before</span> the laws change.</p>
+              <div className="grid grid-cols-2 gap-8 pt-6 border-t border-[#E8E4DB]">
+                <div><h4 className="font-bold text-[#3E3E3E] mb-3 text-sm uppercase tracking-widest">Reactive Strategy</h4><p className="text-lg font-light opacity-90">Wait for Health Canada to fully legalize OTC, then buy inventory and hope customers walk down the right aisle.</p></div>
+                <div><h4 className="font-bold text-[#1B5234] mb-3 text-sm uppercase tracking-widest">Proactive Strategy</h4><p className="text-lg font-light opacity-90">Deploy Soundcheck now. Build a database of pre-qualified "Mild Loss" patients. Flip the switch and monetize instantly on Day 1 of legalization.</p></div>
               </div>
             </div>
           </div>
@@ -265,21 +345,21 @@ export default function App() {
             <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
               <div className="flex items-center gap-4"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><TrendingUp size={32} /></div><div><h2 className="text-4xl font-light">The Sobeys Triage Engine</h2><p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">How Sobeys Wins Today</p></div></div>
             </div>
-            <p className="text-xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E]/80">
+            <p className="text-2xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E]/90">
               Sobeys deploys Soundcheck interactive kiosks in pharmacies today to monetize captive dwell time and triage patients into two distinct revenue streams.
             </p>
             <div className="grid grid-cols-2 gap-8">
               <div className="bg-[#1B5234] p-8 rounded-3xl border border-[#1B5234] text-white shadow-xl">
-                <h4 className="font-bold text-white mb-2 text-xl flex items-center gap-2"><MapPin size={24}/> The Whales (Severe Loss)</h4>
-                <p className="text-sm font-light opacity-90 leading-relaxed mb-4 border-b border-white/20 pb-4">Patients with complex loss are automatically routed to local independent Audiology clinics via the Sobeys Partner Network.</p>
+                <h4 className="font-bold text-white mb-2 text-2xl flex items-center gap-2"><MapPin size={24}/> The Whales (Severe Loss)</h4>
+                <p className="text-lg font-light opacity-100 leading-relaxed mb-4 border-b border-white/20 pb-4">Patients with complex loss are automatically routed to local independent Audiology clinics via the Sobeys Partner Network.</p>
                 <p className="text-sm font-bold uppercase tracking-widest text-[#E8E4DB]">Sobeys Benefit:</p>
-                <p className="text-sm font-light opacity-90">Provides a premium concierge medical referral, elevating brand trust with zero clinical liability.</p>
+                <p className="text-lg font-light opacity-100">Provides a premium concierge medical referral, elevating brand trust with zero clinical liability.</p>
               </div>
               <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-md">
-                <h4 className="font-bold text-[#1B5234] mb-2 text-xl flex items-center gap-2"><ShoppingBag size={24}/> The Minnows (Mild Loss)</h4>
-                <p className="text-sm font-light opacity-80 leading-relaxed mb-4 border-b border-[#3E3E3E]/10 pb-4">Patients with mild loss are cataloged securely. When OTC is legalized, Sobeys instantly retargets them for high-margin, in-store devices.</p>
+                <h4 className="font-bold text-[#1B5234] mb-2 text-2xl flex items-center gap-2"><ShoppingBag size={24}/> The Minnows (Mild Loss)</h4>
+                <p className="text-lg font-light opacity-90 leading-relaxed mb-4 border-b border-[#3E3E3E]/10 pb-4">Patients with mild loss are cataloged securely. When OTC is legalized, Sobeys instantly retargets them for high-margin, in-store devices.</p>
                 <p className="text-sm font-bold uppercase tracking-widest text-[#1B5234]">Sobeys Benefit:</p>
-                <p className="text-sm font-light opacity-80">You own a proprietary database of thousands of ready-to-buy customers that your competitors cannot access.</p>
+                <p className="text-lg font-light opacity-90">You own a proprietary database of thousands of ready-to-buy customers that your competitors cannot access.</p>
               </div>
             </div>
           </div>
@@ -288,7 +368,7 @@ export default function App() {
       </main>
       
       {/* Patient Back Button */}
-      {step > 0 && step < 20 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-lg italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
+      {step > 0 && step < 20 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
 
       {/* Enterprise Layer Navigators */}
       {step >= 20 && (
@@ -304,10 +384,10 @@ export default function App() {
           <div className="bg-[#F9F8F4] p-8 rounded-3xl w-full max-w-sm text-center relative shadow-2xl border-2 border-[#1B5234]">
             <button onClick={() => setShowPinModal(false)} className="absolute top-4 right-4 text-[#3E3E3E]/50 hover:text-[#3E3E3E]"><X size={20}/></button>
             <Lock size={32} className="mx-auto text-[#1B5234] mb-6" />
-            <h3 className="text-xl font-bold mb-6 font-sans uppercase tracking-widest text-[#3E3E3E]">Executive Access</h3>
+            <h3 className="text-2xl font-bold mb-6 font-sans uppercase tracking-widest text-[#3E3E3E]">Executive Access</h3>
             <form onSubmit={handlePinSubmit}>
-              <input type="password" placeholder="Enter PIN" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="w-full text-center tracking-[0.5em] p-4 bg-[#E8E4DB] rounded-xl outline-none mb-6 font-bold text-xl text-[#3E3E3E]" autoFocus />
-              <button type="submit" className="w-full py-4 bg-[#1B5234] text-[#F9F8F4] rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-[#133c26] transition-all">Unlock</button>
+              <input type="password" placeholder="Enter PIN" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="w-full text-center tracking-[0.5em] p-4 bg-[#E8E4DB] rounded-xl outline-none mb-6 font-bold text-2xl text-[#3E3E3E]" autoFocus />
+              <button type="submit" className="w-full py-4 bg-[#1B5234] text-[#F9F8F4] rounded-xl font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] transition-all">Unlock</button>
             </form>
           </div>
         </div>
