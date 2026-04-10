@@ -21,6 +21,7 @@ const useAudioEngine = () => {
     }
   };
 
+  // Unblockable Safari Oscillators for Frequencies
   const playTone = (frequency, volumeLevel) => {
     initAudio();
     stopTone();
@@ -54,12 +55,15 @@ const useAudioEngine = () => {
     }
   };
 
+  // Continuous Background Bistro Noise
   const startBistroNoise = () => {
-    initAudio();
-    if (bgAudioRef.current) {
-      bgAudioRef.current.volume = 1.0;
-      bgAudioRef.current.play().catch(e => console.log("Safari blocked autoplay. Needs user click."));
+    if (!bgAudioRef.current) {
+      bgAudioRef.current = new Audio('https://www.soundjay.com/misc/sounds/restaurant-1.mp3');
+      bgAudioRef.current.loop = true;
+      bgAudioRef.current.crossOrigin = "anonymous";
     }
+    bgAudioRef.current.volume = 1.0;
+    bgAudioRef.current.play().catch(e => console.log("Safari block handled."));
   };
 
   const stopBistroNoise = () => {
@@ -70,29 +74,41 @@ const useAudioEngine = () => {
     window.speechSynthesis.cancel();
   };
 
+  // Live update of background noise volume based on active filter
   const liveUpdateFilters = (mode) => {
     if (bgAudioRef.current) {
       if (mode === 'untreated') bgAudioRef.current.volume = 1.0;
-      else if (mode === 'suppression') bgAudioRef.current.volume = 0.2;
+      else if (mode === 'suppression') bgAudioRef.current.volume = 0.3;
       else if (mode === 'active') bgAudioRef.current.volume = 0.02;
     }
   };
 
-  const speakWord = (text, mode = 'active') => {
+  // Muffled word test (Intentionally hard to hear)
+  const speakWord = (text) => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.85;
-    
-    const voices = window.speechSynthesis.getVoices();
-    const premiumVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Samantha'));
-    if (premiumVoice) utterance.voice = premiumVoice;
+    utterance.volume = 0.15; 
+    utterance.pitch = 0.6; // Deep and muffled
+    window.speechSynthesis.speak(utterance);
+  };
 
-    if (mode === 'untreated' || mode === 'suppression') {
-      utterance.volume = 0.2; 
-      utterance.pitch = 0.8;
-    } else {
+  // Sentence Simulation (Changes volume & pitch instantly when features toggle)
+  const speakSentence = (mode) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance("I was walking down to the market the other day, and the weather was absolutely beautiful. The sun was shining, a light breeze was blowing, and I ran into an old friend from university.");
+    utterance.rate = 0.85;
+
+    // The A/B/C Audio Contrast Illusion
+    if (mode === 'untreated') {
+      utterance.volume = 0.15; 
+      utterance.pitch = 0.5; // Muffled
+    } else if (mode === 'suppression') {
+      utterance.volume = 0.6; 
+      utterance.pitch = 0.8; // Better
+    } else if (mode === 'active') {
       utterance.volume = 1.0; 
-      utterance.pitch = 1.0;
+      utterance.pitch = 1.0; // Crystal Clear
     }
     
     window.speechSynthesis.speak(utterance);
@@ -105,7 +121,7 @@ const useAudioEngine = () => {
 
   return { 
     initAudio, playTone, updateToneVolume, stopTone, 
-    startBistroNoise, stopBistroNoise, liveUpdateFilters, speakWord, stopAll 
+    startBistroNoise, stopBistroNoise, liveUpdateFilters, speakWord, speakSentence, stopAll 
   };
 };
 
@@ -142,18 +158,46 @@ export default function App() {
     setWordStep(0);
   };
 
+  // Sync Audio Auto-Play with Slides
   useEffect(() => {
     if (currentFlow === 'instore') {
+      // Frequencies
       if (step === 6) audio.playTone(4000, highFreqVol);
       else if (step === 7) audio.playTone(1000, midFreqVol);
       else if (step === 8) audio.playTone(250, lowFreqVol);
       else audio.stopTone();
 
-      if (step === 10 || step === 11) audio.startBistroNoise();
-      else audio.stopBistroNoise();
+      // Word Test (Auto Play)
+      if (step === 10) {
+        audio.startBistroNoise();
+      }
+      
+      // Hear the Difference (Auto Play)
+      if (step === 11) {
+        audio.startBistroNoise();
+        audio.liveUpdateFilters('untreated');
+        setSimMode('untreated');
+        const timer = setTimeout(() => { audio.speakSentence('untreated'); }, 1000);
+        return () => clearTimeout(timer);
+      }
+
+      if (step < 10 || step > 11) {
+        audio.stopBistroNoise();
+      }
     }
   }, [step, currentFlow]);
 
+  // Word Test Auto-Trigger on Step Change
+  useEffect(() => {
+    if (currentFlow === 'instore' && step === 10) {
+      const timer = setTimeout(() => {
+        audio.speakWord(testWords[wordStep].w);
+      }, 1500); // 1.5s delay to hear noise first
+      return () => clearTimeout(timer);
+    }
+  }, [wordStep, step, currentFlow]);
+
+  // Live Slider Updates
   useEffect(() => { if (step === 6) audio.updateToneVolume(highFreqVol); }, [highFreqVol]);
   useEffect(() => { if (step === 7) audio.updateToneVolume(midFreqVol); }, [midFreqVol]);
   useEffect(() => { if (step === 8) audio.updateToneVolume(lowFreqVol); }, [lowFreqVol]);
@@ -172,6 +216,12 @@ export default function App() {
   const back = () => { 
     setStep(s => Math.max(0, s - 1)); 
     audio.stopAll();
+  };
+
+  const handleFilterClick = (mode) => {
+    setSimMode(mode);
+    audio.liveUpdateFilters(mode);
+    audio.speakSentence(mode); // Restarts the sentence with the new clarity settings immediately
   };
 
   const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
@@ -200,8 +250,6 @@ export default function App() {
       setWordStep(w => w + 1);
     } else {
       setStep(11);
-      setSimMode('untreated'); 
-      audio.liveUpdateFilters('untreated'); 
     }
   };
 
@@ -210,8 +258,6 @@ export default function App() {
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
       
-      <audio ref={audio.bgAudioRef} src="https://www.soundjay.com/misc/sounds/restaurant-1.mp3" loop crossOrigin="anonymous" preload="auto" />
-
       <div className="fixed top-6 left-0 w-full px-8 flex justify-between items-center z-50">
         <div onClick={returnHome} className="cursor-pointer flex items-center gap-3 bg-white/80 backdrop-blur-md px-5 py-3 rounded-2xl shadow-sm border border-[#1B5234]/10 hover:bg-white transition-all active:scale-95">
           <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Sobeys_logo.svg" alt="Sobeys" className="h-6 object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
@@ -249,7 +295,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
         {/* IN-STORE FLOW */}
+        {/* ========================================== */}
         {currentFlow === 'instore' && step === 0 && (
           <div className="space-y-8 animate-fade-in w-full flex flex-col items-center text-center">
             <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-2">Hearing Wellness Portal</h1>
@@ -288,15 +336,14 @@ export default function App() {
             <div className="bg-[#1B5234] w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-xl animate-pulse">
               <Headphones size={64} className="text-white" />
             </div>
-            <p className="text-3xl font-light leading-relaxed text-[#3E3E3E] mb-8">Please take a sanitizing wipe, clean the earpads, and put on the headphones.</p>
+            <p className="text-3xl font-light leading-relaxed text-[#3E3E3E] mb-8 text-center px-4">Please take a sanitizing wipe, clean the earpads, and put on the headphones.</p>
             <button onClick={() => { audio.initAudio(); setStep(6); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-sm">I'm Ready</button>
           </div>
         )}
 
         {currentFlow === 'instore' && step === 6 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
-            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8">High Frequencies</p>
-            <p className="text-xl font-light opacity-80">Tap the minus button until the high tone disappears, then tap plus just until you hear it.</p>
+            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8 text-center">Tap the minus button until the <strong className="font-bold">high pitch</strong> disappears, then tap plus just until you hear it.</p>
             <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10 w-full flex flex-col items-center mt-6">
               <div className="flex items-center justify-center gap-12 w-full mb-10">
                 <button onClick={() => setHighFreqVol(v => Math.max(0, v - 1))} className="w-24 h-24 rounded-full bg-[#F9F8F4] border-2 border-[#E8E4DB] flex items-center justify-center hover:bg-[#E8E4DB] active:scale-95 transition-all cursor-pointer shadow-sm"><Minus size={48} className="text-[#3E3E3E]" /></button>
@@ -310,8 +357,7 @@ export default function App() {
 
         {currentFlow === 'instore' && step === 7 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
-            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8">Mid Frequencies</p>
-            <p className="text-xl font-light opacity-80">Tap the minus button until the mid tone disappears, then tap plus just until you hear it.</p>
+            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8 text-center">Tap the minus button until the <strong className="font-bold">mid pitch</strong> disappears, then tap plus just until you hear it.</p>
             <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10 w-full flex flex-col items-center mt-6">
               <div className="flex items-center justify-center gap-12 w-full mb-10">
                 <button onClick={() => setMidFreqVol(v => Math.max(0, v - 1))} className="w-24 h-24 rounded-full bg-[#F9F8F4] border-2 border-[#E8E4DB] flex items-center justify-center hover:bg-[#E8E4DB] active:scale-95 transition-all cursor-pointer shadow-sm"><Minus size={48} className="text-[#3E3E3E]" /></button>
@@ -325,8 +371,7 @@ export default function App() {
 
         {currentFlow === 'instore' && step === 8 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
-            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8">Low Frequencies</p>
-            <p className="text-xl font-light opacity-80">Tap the minus button until the low tone disappears, then tap plus just until you hear it.</p>
+            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8 text-center">Tap the minus button until the <strong className="font-bold">low pitch</strong> disappears, then tap plus just until you hear it.</p>
             <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10 w-full flex flex-col items-center mt-6">
               <div className="flex items-center justify-center gap-12 w-full mb-10">
                 <button onClick={() => setLowFreqVol(v => Math.max(0, v - 1))} className="w-24 h-24 rounded-full bg-[#F9F8F4] border-2 border-[#E8E4DB] flex items-center justify-center hover:bg-[#E8E4DB] active:scale-95 transition-all cursor-pointer shadow-sm"><Minus size={48} className="text-[#3E3E3E]" /></button>
@@ -348,18 +393,22 @@ export default function App() {
           </div>
         )}
 
+        {/* GAMIFIED WORD TEST (Auto Play) */}
         {currentFlow === 'instore' && step === 10 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
-            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4">Listen to the restaurant noise. Tap "Play Word" and identify what is spoken.</p>
+            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4">Listen to the background noise. Identify the word that is spoken.</p>
+            
             <div className="w-full bg-white p-12 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4 flex flex-col items-center">
               <div className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-6">Word {wordStep + 1} of 5</div>
-              <button onClick={() => audio.speakWord(testWords[wordStep].w, 'untreated')} className="mb-10 flex items-center gap-3 bg-[#1B5234] text-white px-8 py-4 rounded-full font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] active:scale-95 transition-all shadow-md cursor-pointer">
-                <PlayCircle size={28}/> Play Word
+              
+              <button onClick={() => audio.speakWord(testWords[wordStep].w)} className="mb-10 flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all shadow-sm cursor-pointer">
+                <RefreshCw size={20}/> Replay Word
               </button>
+              
               <div className="w-full border-t border-[#E8E4DB] pt-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl mx-auto">
                   {testWords[wordStep].opts.map(word => (
-                    <button key={word} onClick={handleWordSelect} className="py-6 rounded-2xl bg-[#F9F8F4] border-2 border-[#E8E4DB] hover:border-[#1B5234] transition-all text-3xl font-bold text-[#3E3E3E] cursor-pointer shadow-sm active:scale-95">
+                    <button key={word} onClick={handleWordSelect} className="py-6 rounded-2xl bg-[#F9F8F4] border-2 border-[#E8E4DB] hover:border-[#1B5234] hover:bg-white transition-all text-3xl font-bold text-[#3E3E3E] cursor-pointer shadow-sm active:scale-95">
                       {word}
                     </button>
                   ))}
@@ -369,25 +418,23 @@ export default function App() {
           </div>
         )}
 
+        {/* HEAR THE DIFFERENCE (Auto Play + Live Toggles) */}
         {currentFlow === 'instore' && step === 11 && (
           <div className="space-y-8 animate-fade-in w-full max-w-5xl flex flex-col items-center">
-            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4 max-w-4xl">Tap the filters below to instantly suppress the background noise and enhance the voice.</p>
+            <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4 max-w-4xl">Listen to the sentence. Tap the filters below to instantly suppress the background noise and enhance the voice.</p>
+            
             <div className="w-full bg-white p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4">
-              <div className="flex justify-center mb-8">
-                <button onClick={() => audio.speakWord("I was walking down to the market the other day, and the weather was absolutely beautiful.", simMode)} className="flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all cursor-pointer">
-                  <RefreshCw size={20}/> Play Voice Demo
-                </button>
-              </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button onClick={() => { setSimMode('untreated'); audio.liveUpdateFilters('untreated'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => handleFilterClick('untreated')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Volume2 size={48} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/>
                   <span className="font-bold text-2xl leading-tight">Standard<br/>Hearing</span>
                 </button>
-                <button onClick={() => { setSimMode('suppression'); audio.liveUpdateFilters('suppression'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => handleFilterClick('suppression')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Shield size={48} className={simMode === 'suppression' ? 'text-white' : ''}/>
                   <span className="font-bold text-2xl leading-tight">Noise<br/>Suppression</span>
                 </button>
-                <button onClick={() => { setSimMode('active'); audio.liveUpdateFilters('active'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-2xl scale-110' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => handleFilterClick('active')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-2xl scale-110' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Sparkles size={48} className={simMode === 'active' ? 'text-white' : ''}/>
                   <span className="font-bold text-2xl leading-tight">AI Voice<br/>Clarity</span>
                 </button>
@@ -399,9 +446,11 @@ export default function App() {
           </div>
         )}
 
+        {/* PROFILE REVEAL */}
         {currentFlow === 'instore' && step === 12 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl">
             <div className="mx-auto bg-white w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm border border-[#1B5234]/10"><User size={48} className="text-[#1B5234]" /></div>
+            
             <div className="bg-white p-10 rounded-[3rem] shadow-lg border border-[#1B5234]/10 text-left flex flex-col justify-center">
               {frictionScore < 4 ? (
                 <>
@@ -415,12 +464,14 @@ export default function App() {
                 </>
               )}
             </div>
+            
             <div className="pt-8">
               <button onClick={() => setStep(13)} className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md cursor-pointer">Continue</button>
             </div>
           </div>
         )}
 
+        {/* UNIFIED LEAD GEN */}
         {currentFlow === 'instore' && step === 13 && (
           <div className="w-full max-w-5xl space-y-8 animate-fade-in text-left">
             <div className="flex items-center justify-center gap-4 mb-8">
@@ -430,6 +481,7 @@ export default function App() {
             
             <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-2 border-[#E8E4DB] relative overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                
                 <div className="flex flex-col gap-6">
                   <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">1. Your Information</h3>
                   <input type="text" placeholder="First Name" className="w-full bg-[#F9F8F4] text-[#3E3E3E] p-5 rounded-2xl outline-none font-serif italic text-lg border border-[#E8E4DB]" />
@@ -455,10 +507,11 @@ export default function App() {
                     </p>
                   </div>
                 </div>
+
               </div>
 
               <div className="mt-12 pt-8 border-t border-[#E8E4DB] flex flex-col items-center">
-                <button onClick={() => { alert("Profile Saved! Partner Contacted."); returnHome(); }} disabled={!consentGiven} className={`w-full max-w-md py-6 rounded-full font-bold uppercase tracking-widest text-xl transition-all cursor-pointer ${consentGiven ? 'bg-[#1B5234] text-white hover:bg-[#133c26] shadow-xl hover:scale-105' : 'bg-[#E8E4DB] text-[#3E3E3E]/50 cursor-not-allowed'}`}>Claim Points & Save</button>
+                <button onClick={() => { alert("Profile Saved! Partner Contacted. Points Awarded."); returnHome(); }} disabled={!consentGiven} className={`w-full max-w-md py-6 rounded-full font-bold uppercase tracking-widest text-xl transition-all cursor-pointer ${consentGiven ? 'bg-[#1B5234] text-white hover:bg-[#133c26] shadow-xl hover:scale-105' : 'bg-[#E8E4DB] text-[#3E3E3E]/50 cursor-not-allowed'}`}>Claim Points & Save</button>
                 <div className="flex justify-center items-center gap-2 text-[#3E3E3E]/50 text-xs uppercase tracking-widest font-bold mt-4"><ShieldCheck size={16}/> PIPEDA Compliant & Encrypted</div>
               </div>
             </div>
