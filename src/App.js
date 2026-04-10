@@ -1,36 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, Lock, X, ShieldCheck, Headphones, AlertCircle, 
-  Minus, Plus, User, Volume2, Shield, Sparkles, CheckSquare, Circle, PlayCircle, RefreshCw
+  Minus, Plus, User, Volume2, Shield, Sparkles, CheckSquare, 
+  Circle, PlayCircle, RefreshCw, Smartphone, Brain, QrCode, Award 
 } from 'lucide-react';
 
-export default function App() {
-  const [currentFlow, setCurrentFlow] = useState('home');
-  const [step, setStep] = useState(0);
-  
-  const [consentGiven, setConsentGiven] = useState(false);
-  const [selectedClinic, setSelectedClinic] = useState('London Audiology Centre');
-  const [frictionScore, setFrictionScore] = useState(0);
-  
-  // Frequency Sliders (0-10)
-  const [highFreqVol, setHighFreqVol] = useState(5);
-  const [midFreqVol, setMidFreqVol] = useState(5);
-  const [lowFreqVol, setLowFreqVol] = useState(5);
-
-  const [simMode, setSimMode] = useState('untreated');
-  const [wordStep, setWordStep] = useState(0);
-
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-
-  // Audio Refs
+const useAudioEngine = () => {
   const audioCtxRef = useRef(null);
   const oscRef = useRef(null);
   const gainRef = useRef(null);
   const bgAudioRef = useRef(null);
 
-  // Safely initialize AudioContext (fixes Safari issues)
-  const initAudioCtx = () => {
+  const initAudio = () => {
     if (!audioCtxRef.current) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       audioCtxRef.current = new Ctx();
@@ -40,17 +21,16 @@ export default function App() {
     }
   };
 
-  // Pure mathematical tones (Unblockable on Safari)
   const playTone = (frequency, volumeLevel) => {
-    initAudioCtx();
+    initAudio();
     stopTone();
     
     const osc = audioCtxRef.current.createOscillator();
     const gain = audioCtxRef.current.createGain();
     
     osc.type = 'sine';
-    osc.frequency.value = frequency; // 4000=High, 1000=Mid, 250=Low
-    gain.gain.value = (volumeLevel / 10) * 0.1; // Keep it pleasant, not deafening
+    osc.frequency.value = frequency; 
+    gain.gain.value = (volumeLevel / 10) * 0.1; 
     
     osc.connect(gain);
     gain.connect(audioCtxRef.current.destination);
@@ -74,8 +54,8 @@ export default function App() {
     }
   };
 
-  // Background Noise Engine
   const startBistroNoise = () => {
+    initAudio();
     if (bgAudioRef.current) {
       bgAudioRef.current.volume = 1.0;
       bgAudioRef.current.play().catch(e => console.log("Safari blocked autoplay. Needs user click."));
@@ -91,7 +71,6 @@ export default function App() {
   };
 
   const liveUpdateFilters = (mode) => {
-    setSimMode(mode);
     if (bgAudioRef.current) {
       if (mode === 'untreated') bgAudioRef.current.volume = 1.0;
       else if (mode === 'suppression') bgAudioRef.current.volume = 0.2;
@@ -99,32 +78,59 @@ export default function App() {
     }
   };
 
-  // Text-To-Speech Engine
   const speakWord = (text, mode = 'active') => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.85;
     
-    // Safari Siri voice override attempt
     const voices = window.speechSynthesis.getVoices();
     const premiumVoice = voices.find(v => v.lang === 'en-US' && v.name.includes('Samantha'));
     if (premiumVoice) utterance.voice = premiumVoice;
 
-    // Simulate the technology working via volume mixing
     if (mode === 'untreated' || mode === 'suppression') {
-      utterance.volume = 0.2; // Muffled and quiet
+      utterance.volume = 0.2; 
       utterance.pitch = 0.8;
     } else {
-      utterance.volume = 1.0; // Loud and clear
+      utterance.volume = 1.0; 
       utterance.pitch = 1.0;
     }
     
     window.speechSynthesis.speak(utterance);
   };
 
-  const returnHome = () => {
+  const stopAll = () => {
     stopTone();
     stopBistroNoise();
+  };
+
+  return { 
+    initAudio, playTone, updateToneVolume, stopTone, 
+    startBistroNoise, stopBistroNoise, liveUpdateFilters, speakWord, stopAll 
+  };
+};
+
+export default function App() {
+  const [currentFlow, setCurrentFlow] = useState('home');
+  const [step, setStep] = useState(0);
+  
+  const [consentGiven, setConsentGiven] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState('London Audiology Centre');
+  const [frictionScore, setFrictionScore] = useState(0);
+  
+  const [highFreqVol, setHighFreqVol] = useState(5);
+  const [midFreqVol, setMidFreqVol] = useState(5);
+  const [lowFreqVol, setLowFreqVol] = useState(5);
+
+  const [simMode, setSimMode] = useState('untreated');
+  const [wordStep, setWordStep] = useState(0);
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+
+  const audio = useAudioEngine();
+
+  const returnHome = () => {
+    audio.stopAll();
     setCurrentFlow('home');
     setStep(0);
     setFrictionScore(0);
@@ -136,23 +142,27 @@ export default function App() {
     setWordStep(0);
   };
 
-  // Sync Audio with Steps
   useEffect(() => {
     if (currentFlow === 'instore') {
-      if (step === 6) playTone(4000, highFreqVol);
-      else if (step === 7) playTone(1000, midFreqVol);
-      else if (step === 8) playTone(250, lowFreqVol);
-      else stopTone();
+      if (step === 6) audio.playTone(4000, highFreqVol);
+      else if (step === 7) audio.playTone(1000, midFreqVol);
+      else if (step === 8) audio.playTone(250, lowFreqVol);
+      else audio.stopTone();
 
-      if (step === 10 || step === 11) startBistroNoise();
-      else stopBistroNoise();
+      if (step === 10 || step === 11) audio.startBistroNoise();
+      else audio.stopBistroNoise();
     }
   }, [step, currentFlow]);
 
-  // Live Slider Updates
-  useEffect(() => { if (step === 6) updateToneVolume(highFreqVol); }, [highFreqVol]);
-  useEffect(() => { if (step === 7) updateToneVolume(midFreqVol); }, [midFreqVol]);
-  useEffect(() => { if (step === 8) updateToneVolume(lowFreqVol); }, [lowFreqVol]);
+  useEffect(() => { if (step === 6) audio.updateToneVolume(highFreqVol); }, [highFreqVol]);
+  useEffect(() => { if (step === 7) audio.updateToneVolume(midFreqVol); }, [midFreqVol]);
+  useEffect(() => { if (step === 8) audio.updateToneVolume(lowFreqVol); }, [lowFreqVol]);
+
+  const handlePinSubmit = (e) => {
+    e.preventDefault();
+    if (pinInput === '2026') { setShowPinModal(false); setPinInput(''); setCurrentFlow('enterprise'); setStep(0); }
+    else { alert('Incorrect Access Code'); setPinInput(''); }
+  };
 
   const handleScore = (points) => {
     setFrictionScore(prev => prev + points);
@@ -161,8 +171,7 @@ export default function App() {
 
   const back = () => { 
     setStep(s => Math.max(0, s - 1)); 
-    stopTone();
-    stopBistroNoise();
+    audio.stopAll();
   };
 
   const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
@@ -191,7 +200,8 @@ export default function App() {
       setWordStep(w => w + 1);
     } else {
       setStep(11);
-      liveUpdateFilters('untreated'); // reset for next slide
+      setSimMode('untreated'); 
+      audio.liveUpdateFilters('untreated'); 
     }
   };
 
@@ -200,10 +210,8 @@ export default function App() {
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
       
-      {/* Hidden Audio Element for Safari Background Noise */}
-      <audio ref={bgAudioRef} src="https://www.soundjay.com/misc/sounds/restaurant-1.mp3" loop crossOrigin="anonymous" preload="auto" />
+      <audio ref={audio.bgAudioRef} src="https://www.soundjay.com/misc/sounds/restaurant-1.mp3" loop crossOrigin="anonymous" preload="auto" />
 
-      {/* HEADER */}
       <div className="fixed top-6 left-0 w-full px-8 flex justify-between items-center z-50">
         <div onClick={returnHome} className="cursor-pointer flex items-center gap-3 bg-white/80 backdrop-blur-md px-5 py-3 rounded-2xl shadow-sm border border-[#1B5234]/10 hover:bg-white transition-all active:scale-95">
           <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Sobeys_logo.svg" alt="Sobeys" className="h-6 object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
@@ -216,10 +224,8 @@ export default function App() {
         )}
       </div>
 
-      {/* PROGRESS BAR */}
       {(currentFlow === 'instore' || currentFlow === 'o2o') && (<div className="fixed top-0 left-0 h-1.5 bg-[#E8E4DB] w-full z-50"><div className="h-full bg-[#1B5234] transition-all duration-700 ease-out" style={{ width: `${progress}%` }} /></div>)}
       
-      {/* DISCLAIMER */}
       {(currentFlow === 'instore' || currentFlow === 'o2o') && (<div className="fixed bottom-0 left-0 w-full text-center py-3 bg-[#F9F8F4]/90 backdrop-blur-sm z-40 pointer-events-none border-t border-[#3E3E3E]/10"><p className="text-[10px] uppercase tracking-[0.1em] text-[#3E3E3E]/70 font-sans font-bold flex items-center justify-center gap-2"><AlertCircle size={12}/> Soundcheck is a lifestyle wellness screener, not a medical diagnostic tool.</p></div>)}
 
       <main className="max-w-6xl w-full flex flex-col justify-center items-center relative z-10 pb-12 mt-12">
@@ -243,18 +249,15 @@ export default function App() {
           </div>
         )}
 
-        {/* ========================================== */}
         {/* IN-STORE FLOW */}
-        {/* ========================================== */}
         {currentFlow === 'instore' && step === 0 && (
           <div className="space-y-8 animate-fade-in w-full flex flex-col items-center text-center">
             <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-2">Hearing Wellness Portal</h1>
             <p className="text-[#3E3E3E] text-2xl font-light mb-12 max-w-2xl">Take your 3-Minute Listening Check to discover your personalized sound profile.</p>
-            <button onClick={() => setStep(1)} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-md">Begin Wellness Check</button>
+            <button onClick={() => { audio.initAudio(); setStep(1); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-md">Begin Wellness Check</button>
           </div>
         )}
 
-        {/* INTAKE QUESTIONS */}
         {currentFlow === 'instore' && step === 1 && (
           <div className="w-full flex flex-col items-center animate-fade-in">
             <p className="text-5xl font-light leading-tight opacity-90 max-w-4xl text-center px-4">"I need the TV volume turned up loud, or I rely heavily on subtitles."</p>
@@ -280,18 +283,16 @@ export default function App() {
           </div>
         )}
 
-        {/* HEADPHONE GATE */}
         {currentFlow === 'instore' && step === 5 && (
           <div className="space-y-8 animate-fade-in w-full max-w-2xl flex flex-col items-center">
             <div className="bg-[#1B5234] w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-xl animate-pulse">
               <Headphones size={64} className="text-white" />
             </div>
             <p className="text-3xl font-light leading-relaxed text-[#3E3E3E] mb-8">Please take a sanitizing wipe, clean the earpads, and put on the headphones.</p>
-            <button onClick={() => { initAudioCtx(); setStep(6); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-sm">I'm Ready</button>
+            <button onClick={() => { audio.initAudio(); setStep(6); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-sm">I'm Ready</button>
           </div>
         )}
 
-        {/* FREQUENCY CHECKS (OSCILLATORS) */}
         {currentFlow === 'instore' && step === 6 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8">High Frequencies</p>
@@ -337,7 +338,6 @@ export default function App() {
           </div>
         )}
 
-        {/* COGNITIVE TAX */}
         {currentFlow === 'instore' && step === 9 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center text-center">
             <div className="text-[#1B5234] mb-2 bg-white p-6 rounded-full shadow-sm border border-[#1B5234]/10"><Brain size={64}/></div>
@@ -348,18 +348,14 @@ export default function App() {
           </div>
         )}
 
-        {/* CHALLENGE 1: THE WORD TEST */}
         {currentFlow === 'instore' && step === 10 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4">Listen to the restaurant noise. Tap "Play Word" and identify what is spoken.</p>
-            
             <div className="w-full bg-white p-12 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4 flex flex-col items-center">
               <div className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-6">Word {wordStep + 1} of 5</div>
-              
-              <button onClick={() => speakWord(testWords[wordStep].w, 'untreated')} className="mb-10 flex items-center gap-3 bg-[#1B5234] text-white px-8 py-4 rounded-full font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] active:scale-95 transition-all shadow-md cursor-pointer">
+              <button onClick={() => audio.speakWord(testWords[wordStep].w, 'untreated')} className="mb-10 flex items-center gap-3 bg-[#1B5234] text-white px-8 py-4 rounded-full font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] active:scale-95 transition-all shadow-md cursor-pointer">
                 <PlayCircle size={28}/> Play Word
               </button>
-              
               <div className="w-full border-t border-[#E8E4DB] pt-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl mx-auto">
                   {testWords[wordStep].opts.map(word => (
@@ -373,45 +369,39 @@ export default function App() {
           </div>
         )}
 
-        {/* CHALLENGE 2: HEAR THE DIFFERENCE */}
         {currentFlow === 'instore' && step === 11 && (
           <div className="space-y-8 animate-fade-in w-full max-w-5xl flex flex-col items-center">
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4 max-w-4xl">Tap the filters below to instantly suppress the background noise and enhance the voice.</p>
-            
             <div className="w-full bg-white p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4">
-              
               <div className="flex justify-center mb-8">
-                <button onClick={() => speakWord("I was walking down to the market the other day, and the weather was absolutely beautiful.", simMode)} className="flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all cursor-pointer">
+                <button onClick={() => audio.speakWord("I was walking down to the market the other day, and the weather was absolutely beautiful.", simMode)} className="flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all cursor-pointer">
                   <RefreshCw size={20}/> Play Voice Demo
                 </button>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button onClick={() => liveUpdateFilters('untreated')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => { setSimMode('untreated'); audio.liveUpdateFilters('untreated'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Volume2 size={48} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/>
                   <span className="font-bold text-2xl leading-tight">Standard<br/>Hearing</span>
                 </button>
-                <button onClick={() => liveUpdateFilters('suppression')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => { setSimMode('suppression'); audio.liveUpdateFilters('suppression'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Shield size={48} className={simMode === 'suppression' ? 'text-white' : ''}/>
                   <span className="font-bold text-2xl leading-tight">Noise<br/>Suppression</span>
                 </button>
-                <button onClick={() => liveUpdateFilters('active')} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-2xl scale-110' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                <button onClick={() => { setSimMode('active'); audio.liveUpdateFilters('active'); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-2xl scale-110' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                   <Sparkles size={48} className={simMode === 'active' ? 'text-white' : ''}/>
                   <span className="font-bold text-2xl leading-tight">AI Voice<br/>Clarity</span>
                 </button>
               </div>
             </div>
             <div className="pt-6">
-              <button onClick={() => { setStep(12); stopBistroNoise(); }} className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md cursor-pointer">View My Profile</button>
+              <button onClick={() => { setStep(12); audio.stopAll(); }} className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md cursor-pointer">View My Profile</button>
             </div>
           </div>
         )}
 
-        {/* PROFILE REVEAL */}
         {currentFlow === 'instore' && step === 12 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl">
             <div className="mx-auto bg-white w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm border border-[#1B5234]/10"><User size={48} className="text-[#1B5234]" /></div>
-            
             <div className="bg-white p-10 rounded-[3rem] shadow-lg border border-[#1B5234]/10 text-left flex flex-col justify-center">
               {frictionScore < 4 ? (
                 <>
@@ -425,14 +415,12 @@ export default function App() {
                 </>
               )}
             </div>
-            
             <div className="pt-8">
               <button onClick={() => setStep(13)} className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md cursor-pointer">Continue</button>
             </div>
           </div>
         )}
 
-        {/* UNIFIED LEAD GEN */}
         {currentFlow === 'instore' && step === 13 && (
           <div className="w-full max-w-5xl space-y-8 animate-fade-in text-left">
             <div className="flex items-center justify-center gap-4 mb-8">
@@ -442,7 +430,6 @@ export default function App() {
             
             <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-2 border-[#E8E4DB] relative overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                
                 <div className="flex flex-col gap-6">
                   <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">1. Your Information</h3>
                   <input type="text" placeholder="First Name" className="w-full bg-[#F9F8F4] text-[#3E3E3E] p-5 rounded-2xl outline-none font-serif italic text-lg border border-[#E8E4DB]" />
@@ -464,11 +451,10 @@ export default function App() {
                   <div className="bg-[#F9F8F4] p-6 rounded-2xl border border-[#E8E4DB] flex items-start gap-4 cursor-pointer" onClick={() => setConsentGiven(!consentGiven)}>
                     <div className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-[#1B5234]" /> : <div className="w-7 h-7 border-2 border-[#3E3E3E]/30 rounded bg-white" />}</div>
                     <p className="text-sm font-light opacity-90 leading-snug font-sans text-[#3E3E3E]">
-                      I consent to securely save my profile to Sobeys Pharmacy for Scene+ rewards, and I agree to have <strong className="font-bold text-[#1B5234]">{selectedClinic}</strong> contact me regarding my results.
+                      I consent to securely save my profile to Sobeys for Scene+ rewards, and I agree to have <strong className="font-bold text-[#1B5234]">{selectedClinic}</strong> contact me.
                     </p>
                   </div>
                 </div>
-
               </div>
 
               <div className="mt-12 pt-8 border-t border-[#E8E4DB] flex flex-col items-center">
@@ -492,7 +478,6 @@ export default function App() {
         
         {currentFlow === 'o2o' && step === 1 && (
           <div className="w-full flex flex-col items-center animate-fade-in">
-            <div className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-8">Question 1 of 2</div>
             <p className="text-5xl font-light leading-tight opacity-90 max-w-4xl text-center px-4">"I need the TV volume turned up loud, or I rely heavily on subtitles."</p>
             <ThreeOptions />
           </div>
@@ -500,7 +485,6 @@ export default function App() {
 
         {currentFlow === 'o2o' && step === 2 && (
           <div className="w-full flex flex-col items-center animate-fade-in">
-            <div className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-8">Question 2 of 2</div>
             <p className="text-5xl font-light leading-tight opacity-90 max-w-4xl text-center px-4">"I avoid social gatherings because listening takes too much effort."</p>
             <ThreeOptions />
           </div>
@@ -537,10 +521,37 @@ export default function App() {
           </div>
         )}
 
+        {/* ENTERPRISE PORTAL */}
+        {currentFlow === 'enterprise' && step === 0 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
+            <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
+              <div className="flex items-center gap-4"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><Award size={32} /></div><div><h2 className="text-4xl font-light">The Sobeys Retail Media Network</h2><p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">Zero-Liability Monetization</p></div></div>
+            </div>
+            <p className="text-2xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E]/90">We do not sell medical data. We sell highly targeted <span className="font-bold">Digital Real Estate</span>.</p>
+            <div className="grid grid-cols-2 gap-8 mt-8">
+              <div className="bg-[#1B5234] p-8 rounded-3xl border border-[#1B5234] text-white shadow-xl">
+                <h4 className="font-bold text-white mb-2 text-xl flex items-center gap-2">Sobeys Value</h4>
+                <p className="text-lg font-light opacity-90 leading-relaxed">Sobeys retains 100% of the patient demographic and Scene+ data for future OTC targeting. You take zero liability for clinical referrals.</p>
+              </div>
+              <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-md">
+                <h4 className="font-bold text-[#1B5234] mb-2 text-xl flex items-center gap-2">Partner Value</h4>
+                <p className="text-lg font-light opacity-90 leading-relaxed text-[#3E3E3E]">Local clinics purchase Geo-Targeted Ad placements at the exact moment a high-friction patient finishes the screener. It is the highest-intent advertising in healthcare.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
       </main>
       
       {currentFlow === 'instore' && step > 0 && step < 13 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
       {currentFlow === 'o2o' && step > 0 && step < 4 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
+
+      {currentFlow === 'enterprise' && (
+        <div className="fixed bottom-8 left-0 w-full flex justify-between px-12 z-50">
+          <button disabled className="opacity-30 flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-4 py-2 rounded-full shadow-sm"><ChevronLeft size={20}/> Previous</button>
+          <button onClick={returnHome} className="flex items-center gap-2 text-[#F9F8F4] font-bold uppercase tracking-widest text-sm transition-all bg-[#1B5234] px-6 py-3 rounded-full shadow-lg hover:bg-[#133c26] border border-[#1B5234] cursor-pointer">Exit Portal <Lock size={16}/></button>
+        </div>
+      )}
 
       {showPinModal && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center animate-fade-in backdrop-blur-md">
