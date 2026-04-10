@@ -2,66 +2,92 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
   Shield, Brain, CheckSquare, QrCode, Clock, MapPin, Lock, X, Building, ShieldCheck,
-  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, RefreshCw, UserCheck
+  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, RefreshCw, UserCheck, PlayCircle
 } from 'lucide-react';
 
 const useAudioEngine = () => {
   const audioCtxRef = useRef(null);
   const backgroundAudioRef = useRef(null);
   const speechIntervalRef = useRef(null);
-  const speechUtteranceRef = useRef(null);
 
   const initAudio = () => {
-    if (!audioCtxRef.current) { const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtxRef.current = new AudioContext(); }
+    if (!audioCtxRef.current) { 
+      const AudioContext = window.AudioContext || window.webkitAudioContext; 
+      audioCtxRef.current = new AudioContext(); 
+    }
     if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
   };
 
   const stopAll = () => {
-    if (backgroundAudioRef.current) { backgroundAudioRef.current.pause(); backgroundAudioRef.current.currentTime = 0; }
+    if (backgroundAudioRef.current) { 
+      backgroundAudioRef.current.pause(); 
+      backgroundAudioRef.current.currentTime = 0; 
+    }
     clearInterval(speechIntervalRef.current);
     window.speechSynthesis.cancel();
   };
 
-  const startCafeSimulation = (mode) => {
-    initAudio(); 
+  // For the Speech-in-Noise Word Test
+  const playWordInNoise = (word) => {
+    initAudio();
+    stopAll();
     
     if (!backgroundAudioRef.current) {
       const audio = new Audio('https://www.soundjay.com/misc/sounds/restaurant-1.mp3');
       audio.crossOrigin = "anonymous";
       audio.loop = true;
       backgroundAudioRef.current = audio;
-      audio.play().catch(e => console.log("Audio play prevented:", e));
-    } else if (backgroundAudioRef.current.paused) {
-      backgroundAudioRef.current.play().catch(e => console.log("Audio play prevented:", e));
     }
+    backgroundAudioRef.current.volume = 0.8; // Heavy noise
+    backgroundAudioRef.current.play().catch(e => console.log(e));
 
-    let bgVol = 1.0; let speechVol = 0.3;
-
-    if (mode === 'untreated') { bgVol = 1.0; speechVol = 0.2; } 
-    else if (mode === 'suppression') { bgVol = 0.2; speechVol = 0.8; }
-    else if (mode === 'active') { bgVol = 0.02; speechVol = 1.0; } 
-
-    backgroundAudioRef.current.volume = bgVol;
-    window.speechSynthesis.cancel(); 
-    
-    const longSentence = "I was walking down to the market the other day, and the weather was absolutely beautiful. The sun was shining, a light breeze was blowing, and I ran into an old friend from university. We ended up chatting for over an hour about our travel plans for the summer, the new restaurants opening downtown, and how much the neighborhood has changed over the past few years.";
-    
-    const utterance = new SpeechSynthesisUtterance(longSentence);
-    utterance.rate = 0.9; 
-    utterance.volume = speechVol;
-    utterance.pitch = 1.0;
-    
-    utterance.onend = () => {
-      if (backgroundAudioRef.current && !backgroundAudioRef.current.paused) {
-        window.speechSynthesis.speak(utterance);
-      }
-    };
-    
-    speechUtteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.rate = 0.85; 
+      utterance.volume = 0.6; // Voice fighting the noise
+      window.speechSynthesis.speak(utterance);
+    }, 1500);
   };
 
-  return { startCafeSimulation, stopAll, initAudio };
+  // For the Interactive "Hear the Difference" Simulation
+  const startCafeSimulation = () => {
+    initAudio(); 
+    stopAll();
+    
+    if (!backgroundAudioRef.current) {
+      const audio = new Audio('https://www.soundjay.com/misc/sounds/restaurant-1.mp3');
+      audio.crossOrigin = "anonymous";
+      audio.loop = true;
+      backgroundAudioRef.current = audio;
+    }
+    backgroundAudioRef.current.volume = 1.0;
+    backgroundAudioRef.current.play().catch(e => console.log(e));
+
+    const loopSpeech = () => {
+      const longSentence = "I was walking down to the market the other day, and the weather was absolutely beautiful. The sun was shining, a light breeze was blowing, and I ran into an old friend from university.";
+      const utterance = new SpeechSynthesisUtterance(longSentence);
+      utterance.rate = 0.9; 
+      utterance.volume = 1.0;
+      utterance.onend = () => {
+        if (backgroundAudioRef.current && !backgroundAudioRef.current.paused) {
+          loopSpeech();
+        }
+      };
+      window.speechSynthesis.speak(utterance);
+    };
+    loopSpeech();
+  };
+
+  // Live updates the volume without restarting the audio
+  const liveUpdateSimulation = (mode) => {
+    if (backgroundAudioRef.current) {
+      if (mode === 'untreated') { backgroundAudioRef.current.volume = 1.0; } 
+      else if (mode === 'suppression') { backgroundAudioRef.current.volume = 0.2; }
+      else if (mode === 'active') { backgroundAudioRef.current.volume = 0.02; } 
+    }
+  };
+
+  return { playWordInNoise, startCafeSimulation, liveUpdateSimulation, stopAll, initAudio };
 };
 
 export default function App() {
@@ -73,6 +99,15 @@ export default function App() {
   const [activeEduTab, setActiveEduTab] = useState(0);
   const [frictionScore, setFrictionScore] = useState(0);
   
+  // Speech-in-Noise Test State
+  const [testActive, setTestActive] = useState(false);
+  const [wordStep, setWordStep] = useState(0);
+  const testWords = [
+    { correct: "Park", options: ["Park", "Bark", "Dark"] },
+    { correct: "Time", options: ["Dime", "Time", "Chime"] },
+    { correct: "Coat", options: ["Goat", "Coat", "Boat"] }
+  ];
+
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
 
@@ -84,14 +119,16 @@ export default function App() {
     setStep(0);
     setFrictionScore(0);
     setConsentGiven(false);
+    setTestActive(false);
+    setWordStep(0);
   };
 
-  // Only manage audio start/stop based on the slide step. NO TIMERS.
+  // Audio lifecycle management
   useEffect(() => {
-    if (currentFlow === 'instore' && step === 6) {
+    if (currentFlow === 'instore' && step === 7) {
       setSimMode('untreated');
-      audio.startCafeSimulation('untreated');
-    } else {
+      audio.startCafeSimulation();
+    } else if (currentFlow === 'instore' && step !== 4) {
       audio.stopAll();
     }
     return () => audio.stopAll();
@@ -104,17 +141,40 @@ export default function App() {
   };
 
   const next = (points = 0) => { setFrictionScore(prev => prev + points); setStep(s => s + 1); };
-  const back = () => { setStep(s => Math.max(0, s - 1)); };
+  const back = () => { setStep(s => Math.max(0, s - 1)); audio.stopAll(); };
+
+  // Triggering the Word Test
+  const startWordTest = () => {
+    setTestActive(true);
+    audio.playWordInNoise(testWords[wordStep].correct);
+  };
+
+  const handleWordAnswer = () => {
+    if (wordStep < 2) {
+      const nextStep = wordStep + 1;
+      setWordStep(nextStep);
+      audio.playWordInNoise(testWords[nextStep].correct);
+    } else {
+      audio.stopAll();
+      setTestActive(false);
+      next(1); // Add friction score and move on
+    }
+  };
+
+  const handleSimChange = (mode) => {
+    setSimMode(mode);
+    audio.liveUpdateSimulation(mode); // Live change, no restart
+  };
 
   const RHButton = ({ children, onClick, variant="p", className="", disabled=false }) => (
     <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light cursor-pointer ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
   );
 
   const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
-  const progress = currentFlow === 'instore' ? (step / 8) * 100 : currentFlow === 'o2o' ? (step / 3) * 100 : 0;
+  const progress = currentFlow === 'instore' ? (step / 9) * 100 : currentFlow === 'o2o' ? (step / 3) * 100 : 0;
 
   const eduContent = [
-    { icon: <Brain size={40}/>, title: "The Cognitive Tax", body: "When you lose high frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day." },
+    { icon: <Brain size={40}/>, title: "The Cognitive Tax", body: "When you lose specific frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day." },
     { icon: <Clock size={40}/>, title: "The Decade of Delay", body: "The average adult struggles with hearing decline for 7 to 10 years before seeking help. That is a decade of missed punchlines. Treating it early preserves neural pathways." },
     { icon: <RefreshCw size={40}/>, title: "Modern Truths", body: "The stigma is outdated. Constantly asking 'pardon?' ages us far more than wearing a hidden micro-computer. Modern tech uses AI to isolate human connection." }
   ];
@@ -141,7 +201,7 @@ export default function App() {
       <main className="max-w-4xl w-full flex flex-col justify-center items-center relative z-10 pb-12 mt-12">
 
         {/* --------------------------------------------------------- */}
-        {/* HOME SCREEN: THE PROTOTYPE SELECTOR */}
+        {/* HOME SCREEN */}
         {/* --------------------------------------------------------- */}
         {currentFlow === 'home' && (
           <div className="space-y-12 animate-fade-in relative w-full flex flex-col items-center">
@@ -154,14 +214,14 @@ export default function App() {
               <div onClick={() => { setCurrentFlow('instore'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
                 <div className="w-20 h-20 bg-[#F9F8F4] rounded-full flex items-center justify-center mb-6 group-hover:bg-[#1B5234] transition-colors"><Headphones size={40} className="text-[#1B5234] group-hover:text-white transition-colors"/></div>
                 <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">Premium Kiosk</h3>
-                <p className="text-lg font-light opacity-80 mb-6 h-16">Full interactive flow with in-store audio simulation using sanitized ANC headphones.</p>
+                <p className="text-lg font-light opacity-80 mb-6 h-16">Full interactive flow with functional Speech-in-Noise testing and AI simulations.</p>
                 <span className="text-sm font-bold uppercase tracking-widest text-[#1B5234]">Launch Flow A</span>
               </div>
 
               <div onClick={() => { setCurrentFlow('o2o'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
                 <div className="w-20 h-20 bg-[#F9F8F4] rounded-full flex items-center justify-center mb-6 group-hover:bg-[#1B5234] transition-colors"><Smartphone size={40} className="text-[#1B5234] group-hover:text-white transition-colors"/></div>
                 <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">Express O2O</h3>
-                <p className="text-lg font-light opacity-80 mb-6 h-16">30-second emotional intake that bridges the user to their own personal smartphone.</p>
+                <p className="text-lg font-light opacity-80 mb-6 h-16">Lightning-fast intake that bridges the user to their own personal smartphone.</p>
                 <span className="text-sm font-bold uppercase tracking-widest text-[#1B5234]">Launch Flow B</span>
               </div>
             </div>
@@ -174,7 +234,7 @@ export default function App() {
         {currentFlow === 'instore' && step === 0 && (
           <div className="space-y-8 animate-fade-in w-full max-w-xl text-center">
             <h1 className="text-5xl italic text-[#3E3E3E] mb-4">Let's establish your baseline.</h1>
-            <p className="text-2xl font-light opacity-90 mb-12">Answer 3 quick questions about your daily life.</p>
+            <p className="text-2xl font-light opacity-90 mb-12">Answer a few questions about your daily life, followed by a quick functional listening test.</p>
             <RHButton onClick={() => next(0)}>Begin Assessment</RHButton>
           </div>
         )}
@@ -183,8 +243,35 @@ export default function App() {
         {currentFlow === 'instore' && step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">It requires intense concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">I hear everything effortlessly</button></div></div>)}
         {currentFlow === 'instore' && step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">No, I never avoid social situations</button></div></div>)}
 
-        {/* Education & Destigmatization */}
+        {/* Speech-in-Noise Test */}
         {currentFlow === 'instore' && step === 4 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-2xl flex flex-col items-center">
+            <h2 className="text-4xl leading-tight">Speech-in-Noise Check</h2>
+            <p className="text-2xl font-light opacity-90 mb-4">Let's measure how well your brain isolates words in a noisy environment. Identify the 3 words spoken through the bistro noise.</p>
+            
+            {!testActive ? (
+              <div className="bg-white p-10 rounded-[3rem] shadow-lg border border-[#1B5234]/10 w-full flex flex-col items-center">
+                <PlayCircle size={80} className="text-[#1B5234] mb-6 cursor-pointer hover:scale-105 transition-transform" onClick={startWordTest}/>
+                <p className="text-xl font-bold text-[#3E3E3E]">Tap to Begin Audio Test</p>
+                <p className="text-sm opacity-60 mt-2">Please put on headphones if available.</p>
+              </div>
+            ) : (
+              <div className="w-full space-y-8 mt-4 bg-white p-10 rounded-[3rem] shadow-lg border border-[#1B5234]/10">
+                <div className="text-lg uppercase tracking-widest text-[#1B5234] mb-8 font-bold">Word {wordStep + 1} of 3</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                  {testWords[wordStep].options.map(w => (
+                    <button key={w} onClick={handleWordAnswer} className="p-6 rounded-2xl bg-[#F9F8F4] border-2 border-[#E8E4DB] hover:border-[#1B5234] transition-all text-2xl font-bold text-[#3E3E3E] cursor-pointer">
+                      {w}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Education */}
+        {currentFlow === 'instore' && step === 5 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
             <h2 className="text-5xl italic text-[#3E3E3E] mb-6">The Hidden Impact</h2>
             <div className="w-full flex flex-col md:flex-row gap-6 bg-white p-8 rounded-[3rem] border border-[#1B5234]/10 shadow-lg">
@@ -206,24 +293,24 @@ export default function App() {
           </div>
         )}
 
-        {/* The Headphone Gate */}
-        {currentFlow === 'instore' && step === 5 && (
+        {/* Headphone Gate */}
+        {currentFlow === 'instore' && step === 6 && (
           <div className="space-y-8 animate-fade-in w-full max-w-2xl flex flex-col items-center">
             <div className="bg-[#1B5234] w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-xl animate-pulse">
               <Headphones size={64} className="text-white" />
             </div>
-            <h2 className="text-5xl italic text-[#3E3E3E]">Prepare for Audio</h2>
-            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E] mb-8">For the ultimate experience, please sanitize and put on the noise-cancelling headphones provided at the kiosk.</p>
+            <h2 className="text-5xl italic text-[#3E3E3E]">Prepare for AI Audio</h2>
+            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E] mb-8">For the ultimate experience, please ensure your headphones are on to experience live AI noise suppression.</p>
             <RHButton onClick={() => next(0)} className="!py-6 text-2xl w-full max-w-sm">I'm Ready</RHButton>
           </div>
         )}
 
-        {/* Hear the Difference */}
-        {currentFlow === 'instore' && step === 6 && (
+        {/* Hear the Difference (LIVE INTERACTIVE) */}
+        {currentFlow === 'instore' && step === 7 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl flex flex-col items-center">
             <div className="mx-auto bg-white w-20 h-20 rounded-full flex items-center justify-center mb-2 shadow-sm border border-[#1B5234]/10"><Sparkles size={40} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Hear The Difference</h2>
-            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Modern technology uses AI to instantly suppress background noise. Tap the enhancements below to hear the clarity.</p>
+            <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Tap the technology tiers below to instantly filter the environment and isolate the voice.</p>
             <div className="w-full bg-white p-6 rounded-[3rem] border border-[#1B5234]/20 shadow-lg mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <button onClick={() => handleSimChange('untreated')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Ear size={32} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-xl leading-tight">Standard<br/>Hearing</span></button>
@@ -236,19 +323,19 @@ export default function App() {
         )}
 
         {/* Profile Reveal */}
-        {currentFlow === 'instore' && step === 7 && (
+        {currentFlow === 'instore' && step === 8 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl">
             <div className="mx-auto bg-white w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm border border-[#1B5234]/10"><UserCheck size={48} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#1B5234] mb-8">Your Listening Profile</h2>
             <div className="bg-white p-10 rounded-[3rem] shadow-lg border border-[#1B5234]/10 text-left">
-              {frictionScore === 0 ? (
+              {frictionScore <= 1 ? (
                 <>
-                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your psychosocial baseline indicates a very low level of social friction. Your natural hearing is serving you well.</p>
+                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your psychosocial baseline and speech-in-noise performance indicate very low social friction.</p>
                   <p className="text-xl opacity-90 font-light">Explore <span className="font-bold text-[#1B5234]">Situational Enhancers</span> to protect your baseline in noisy spaces.</p>
                 </>
               ) : (
                 <>
-                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your psychosocial baseline indicates elevated social friction. You are expending a high amount of cognitive energy to stay connected in noise.</p>
+                  <p className="font-light text-3xl leading-relaxed border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E] mb-6">Your baseline indicates elevated social friction. You are expending a high amount of cognitive energy to stay connected in noise.</p>
                   <p className="text-xl opacity-90 font-light">Explore <span className="font-bold text-[#1B5234]">Invisible AI Technology</span> to permanently reduce your cognitive tax.</p>
                 </>
               )}
@@ -258,7 +345,7 @@ export default function App() {
         )}
 
         {/* Scene+ Vault */}
-        {currentFlow === 'instore' && step === 8 && (
+        {currentFlow === 'instore' && step === 9 && (
           <div className="w-full max-w-3xl space-y-8 animate-fade-in text-left">
             <div className="bg-gradient-to-br from-gray-900 to-[#1B5234] p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
               <Award className="absolute -right-10 -bottom-10 text-white/10" size={200} />
@@ -284,7 +371,7 @@ export default function App() {
         )}
 
         {/* --------------------------------------------------------- */}
-        {/* FLOW B: EXPRESS O2O (Offline to Online) */}
+        {/* FLOW B: EXPRESS O2O */}
         {/* --------------------------------------------------------- */}
         {currentFlow === 'o2o' && step === 0 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV volume frequently cause disagreements, or do you find yourself needing captions to follow the dialogue?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely / Never</RHButton></div></div>)}
         {currentFlow === 'o2o' && step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">No, I never avoid social situations</button></div></div>)}
@@ -418,7 +505,7 @@ export default function App() {
       </main>
       
       {/* Navigation Layer */}
-      {currentFlow === 'instore' && step > 0 && step < 8 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
+      {currentFlow === 'instore' && step > 0 && step < 9 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
       {currentFlow === 'o2o' && step > 0 && step < 3 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
 
       {/* Enterprise Navigation */}
