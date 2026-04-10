@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Lock, X, ShieldCheck, Headphones, AlertCircle, 
   Minus, Plus, User, Volume2, Shield, Sparkles, CheckSquare, 
   Circle, PlayCircle, RefreshCw, Smartphone, Brain, QrCode, Award, 
-  EyeOff, Bluetooth, BatteryCharging, Cpu, TrendingUp
+  EyeOff, Bluetooth, BatteryCharging, Cpu, TrendingUp, Activity
 } from 'lucide-react';
 
 const useAudioEngine = () => {
@@ -135,6 +135,7 @@ const useAudioEngine = () => {
   const stopAll = () => {
     stopTone();
     stopBackgroundDrone();
+    window.speechSynthesis.cancel();
   };
 
   return { 
@@ -178,9 +179,9 @@ export default function App() {
   };
 
   // Live Slider Updates
-  useEffect(() => { if (step === 6) audio.updateToneVolume(highFreqVol); }, [highFreqVol]);
-  useEffect(() => { if (step === 7) audio.updateToneVolume(midFreqVol); }, [midFreqVol]);
-  useEffect(() => { if (step === 8) audio.updateToneVolume(lowFreqVol); }, [lowFreqVol]);
+  useEffect(() => { if (step === 6 && currentFlow === 'instore') audio.updateToneVolume(highFreqVol); }, [highFreqVol]);
+  useEffect(() => { if (step === 7 && currentFlow === 'instore') audio.updateToneVolume(midFreqVol); }, [midFreqVol]);
+  useEffect(() => { if (step === 8 && currentFlow === 'instore') audio.updateToneVolume(lowFreqVol); }, [lowFreqVol]);
 
   const handlePinSubmit = (e) => {
     e.preventDefault();
@@ -219,7 +220,7 @@ export default function App() {
     audio.speakSentence(mode); 
   };
 
-  const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
+  const bgClass = currentFlow === 'enterprise' ? "bg-[#F9F8F4] text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
   const progress = currentFlow === 'instore' ? (step / 14) * 100 : currentFlow === 'o2o' ? (step / 7) * 100 : 0;
 
   const ThreeOptions = () => (
@@ -534,7 +535,7 @@ export default function App() {
         )}
 
         {currentFlow === 'o2o' && step === 7 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
+          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left pb-20">
             <div className="bg-[#1B5234] p-12 rounded-[3rem] shadow-2xl border border-[#1B5234]/10 flex flex-col md:flex-row gap-12 items-center text-white relative overflow-hidden">
               <div className="flex-1 space-y-6 relative z-10">
                 <h3 className="text-5xl font-serif font-bold italic mb-2">Hear the Difference</h3>
@@ -544,85 +545,75 @@ export default function App() {
                   <span className="font-bold text-lg">Earn 50 Points upon completion</span>
                 </div>
               </div>
-              <div className="flex-1 flex justify-center relative z-10">
-                <div className="w-80 bg-[#F9F8F4] border-4 border-white rounded-3xl relative shadow-2xl flex flex-col items-center justify-center p-8 text-[#3E3E3E]">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/1/1a/Sobeys_logo.svg" alt="Sobeys" className="h-8 opacity-50 mb-8" />
-                  <div className="bg-white p-4 rounded-2xl shadow-md mb-6"><QrCode size={140} className="text-[#3E3E3E]" /></div>
-                  <p className="text-center font-black text-[#1B5234] text-sm uppercase tracking-widest">Scan with Camera</p>
-                </div>
-              </div>
             </div>
             <div className="text-center pt-4"><button onClick={returnHome} className="text-[#3E3E3E]/50 font-bold uppercase tracking-widest text-sm hover:text-[#3E3E3E] cursor-pointer">Return to Home Screen</button></div>
           </div>
         )}
 
         {/* ========================================== */}
-        {/* ENTERPRISE PITCH DECK */}
+        {/* ENTERPRISE EXECUTIVE DASHBOARD */}
         {/* ========================================== */}
         {currentFlow === 'enterprise' && step === 0 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
-            <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
-              <div className="flex items-center gap-4"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><TrendingUp size={32} /></div><div><h2 className="text-4xl font-light">The Retail Revolution</h2><p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">The U.S. Retail Precedent</p></div></div>
-            </div>
-            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10">
-              <div className="grid grid-cols-2 gap-12 mb-8">
+          <div className="w-full max-w-5xl animate-fade-in text-left flex flex-col items-center">
+            <div className="flex items-center justify-between w-full mb-8 border-b border-[#3E3E3E]/20 pb-6">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-[#1B5234] text-white rounded-2xl"><TrendingUp size={32} /></div>
                 <div>
-                  <h3 className="text-6xl font-black text-[#1B5234] mb-2">$1 Billion</h3>
-                  <p className="text-xl font-light text-[#3E3E3E]">Projected value of the US OTC market by 2033 as consumer demand explodes.</p>
-                </div>
-                <div>
-                  <h3 className="text-6xl font-black text-[#1B5234] mb-2">70%</h3>
-                  <p className="text-xl font-light text-[#3E3E3E]">Of retail hearing device buyers are first-time users breaking the traditional barrier.</p>
+                  <h2 className="text-4xl font-light text-[#3E3E3E]">The Sobeys OTC Opportunity</h2>
+                  <p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">Executive Dashboard</p>
                 </div>
               </div>
-              <div className="bg-[#F9F8F4] p-6 rounded-2xl border-l-4 border-[#1B5234]">
-                <p className="text-xl font-light text-[#3E3E3E]"><strong className="font-bold text-[#1B5234]">The Pharmacy Front Door:</strong> Major U.S. retailers have aggressively remodeled to feature consumer hearing technology. The pharmacy aisle is now the most effective location for first-time auditory assessment.</p>
-              </div>
             </div>
-          </div>
-        )}
 
-        {currentFlow === 'enterprise' && step === 1 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
-            <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
-              <div className="flex items-center gap-4"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><Shield size={32} /></div><div><h2 className="text-4xl font-light">The Regulatory Moat</h2><p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">The Canadian Advantage</p></div></div>
-            </div>
-            <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10 space-y-6">
-              <div className="flex gap-4 items-start">
-                <div className="p-2 bg-[#F9F8F4] rounded-lg"><Smartphone className="text-[#1B5234]"/></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full mb-8">
+              {/* Pillar 1: Market Graph */}
+              <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-[#1B5234]/10 flex flex-col justify-between">
                 <div>
-                  <p className="font-bold text-xl text-[#3E3E3E]">The Catalyst</p>
-                  <p className="text-lg font-light text-[#3E3E3E]/80">Apple AirPods Pro 2 just secured federal clearance as a software-based hearing aid, forcing Big Tech into the healthcare conversation.</p>
+                  <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">Global OTC Market Growth</h3>
+                  <p className="text-sm font-light text-[#3E3E3E]/80 mb-6">The fastest growing consumer health category.</p>
+                </div>
+                <div className="flex items-end gap-6 h-40 border-b-2 border-l-2 border-[#E8E4DB] p-4 pt-0">
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <div className="w-full bg-[#E8E4DB] rounded-t-md h-[40%] relative flex justify-center items-end pb-2 transition-all hover:bg-[#DAD4C7]"><span className="font-bold text-[#3E3E3E] text-sm">~$410M</span></div>
+                    <span className="text-xs font-bold text-[#3E3E3E]/60">2024</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <div className="w-full bg-[#1B5234] rounded-t-md h-[100%] relative flex justify-center items-end pb-2 shadow-lg"><span className="font-bold text-white text-sm">>$1.0B</span></div>
+                    <span className="text-xs font-bold text-[#3E3E3E]/60">2033</span>
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-4 items-start">
-                <div className="p-2 bg-[#F9F8F4] rounded-lg"><Lock className="text-[#1B5234]"/></div>
-                <div>
-                  <p className="font-bold text-xl text-[#3E3E3E]">The Moat</p>
-                  <p className="text-lg font-light text-[#3E3E3E]/80">Health Canada maintains strict Class II dispensing laws. True OTC sales are currently stalled.</p>
-                </div>
-              </div>
-              <div className="bg-[#F9F8F4] p-6 rounded-2xl border-l-4 border-[#1B5234] mt-4">
-                <p className="text-xl font-light text-[#3E3E3E]"><strong className="font-bold text-[#1B5234]">The Sobeys Advantage:</strong> Sobeys is perfectly positioned to act as the legal, PHIPA-compliant bridge between massive consumer curiosity and verified clinical care.</p>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {currentFlow === 'enterprise' && step === 2 && (
-          <div className="space-y-8 animate-fade-in w-full max-w-4xl text-left">
-            <div className="flex items-center justify-between mb-8 border-b border-[#3E3E3E]/20 pb-6">
-              <div className="flex items-center gap-4"><div className="p-4 bg-[#1B5234] text-white rounded-2xl"><Award size={32} /></div><div><h2 className="text-4xl font-light">Zero-Liability Solution</h2><p className="text-sm uppercase tracking-widest text-[#1B5234] font-bold mt-1">The Sobeys Retail Media Network</p></div></div>
-            </div>
-            <p className="text-2xl font-light leading-relaxed mb-8 border-l-4 border-[#1B5234] pl-6 text-[#3E3E3E]/90">We do not sell medical data. We sell highly targeted <span className="font-bold">Digital Real Estate</span>.</p>
-            <div className="grid grid-cols-2 gap-8 mt-8">
-              <div className="bg-[#1B5234] p-8 rounded-3xl border border-[#1B5234] text-white shadow-xl">
-                <h4 className="font-bold text-white mb-2 text-xl flex items-center gap-2">Sobeys Value</h4>
-                <p className="text-lg font-light opacity-90 leading-relaxed">Launch non-diagnostic kiosks. Sobeys captures the 1st-party demographic and Scene+ data for future OTC targeting, taking zero clinical liability.</p>
+              {/* Pillar 2: Canadian Advantage */}
+              <div className="bg-gradient-to-br from-[#1B5234] to-[#133c26] p-8 rounded-[2rem] shadow-xl text-white flex flex-col justify-center relative overflow-hidden">
+                 <div className="absolute -right-10 -top-10 opacity-10"><Sparkles size={200}/></div>
+                 <div className="relative z-10">
+                   <h3 className="text-2xl font-bold mb-4 flex items-center gap-3"><Award size={28}/> The First-Mover Advantage</h3>
+                   <p className="text-lg font-light leading-relaxed opacity-90 mb-4">With tech giants like Apple securing software-based hearing aid clearances, the Canadian market is on the precipice of a massive retail shift.</p>
+                   <p className="text-lg font-light leading-relaxed opacity-90">By launching the Wellness Portal today, Sobeys establishes itself as the trusted destination for hearing health <strong className="font-bold">before</strong> the hardware floodgates fully open.</p>
+                 </div>
               </div>
-              <div className="bg-white p-8 rounded-3xl border-2 border-[#1B5234] shadow-md">
-                <h4 className="font-bold text-[#1B5234] mb-2 text-xl flex items-center gap-2">Partner Value</h4>
-                <p className="text-lg font-light opacity-90 leading-relaxed text-[#3E3E3E]">We sell the geo-targeted digital real estate. Local clinics pay to capture the highest-intent referrals in healthcare right at the point of realization.</p>
+            </div>
+
+            {/* Pillar 3: Immediate ROI */}
+            <div className="w-full bg-white p-8 rounded-[2rem] shadow-xl border border-[#1B5234]/10">
+              <h3 className="text-2xl font-bold text-[#3E3E3E] mb-6 border-b border-[#E8E4DB] pb-4">Immediate Sobeys ROI</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex flex-col gap-3">
+                  <div className="p-3 bg-[#F9F8F4] w-fit rounded-xl"><User size={24} className="text-[#1B5234]"/></div>
+                  <h4 className="font-bold text-lg text-[#3E3E3E]">1st-Party Data</h4>
+                  <p className="text-sm font-light text-[#3E3E3E]/80 leading-relaxed">Capture high-intent demographic data seamlessly into the Scene+ ecosystem.</p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="p-3 bg-[#F9F8F4] w-fit rounded-xl"><Smartphone size={24} className="text-[#1B5234]"/></div>
+                  <h4 className="font-bold text-lg text-[#3E3E3E]">Increased Dwell Time</h4>
+                  <p className="text-sm font-light text-[#3E3E3E]/80 leading-relaxed">Interactive kiosks drive engagement in the pharmacy aisle, increasing adjacent OTC basket sizes.</p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="p-3 bg-[#F9F8F4] w-fit rounded-xl"><Activity size={24} className="text-[#1B5234]"/></div>
+                  <h4 className="font-bold text-lg text-[#3E3E3E]">Retail Media Network</h4>
+                  <p className="text-sm font-light text-[#3E3E3E]/80 leading-relaxed">Generate immediate RMN revenue by connecting high-friction users to local audiology partners through targeted digital real estate.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -635,9 +626,9 @@ export default function App() {
 
       {currentFlow === 'enterprise' && (
         <div className="fixed bottom-8 left-0 w-full flex justify-between px-12 z-50">
-          <button onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0} className={`flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-6 py-3 rounded-full shadow-sm transition-all ${step === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 cursor-pointer text-[#1B5234]'}`}><ChevronLeft size={20}/> Previous</button>
+          <button disabled className="opacity-30 flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-4 py-2 rounded-full shadow-sm"><ChevronLeft size={20}/> Previous</button>
           <button onClick={returnHome} className="flex items-center gap-2 text-[#3E3E3E] font-bold uppercase tracking-widest text-sm transition-all bg-[#E8E4DB] px-6 py-3 rounded-full shadow-sm hover:bg-[#DAD4C7] cursor-pointer">Exit Portal <Lock size={16}/></button>
-          <button onClick={() => setStep(s => Math.min(2, s + 1))} disabled={step === 2} className={`flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-6 py-3 rounded-full shadow-sm transition-all ${step === 2 ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 cursor-pointer text-[#1B5234]'}`}>Next <ChevronRight size={20}/></button>
+          <button disabled className="opacity-30 flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-4 py-2 rounded-full shadow-sm">Next <ChevronRight size={20}/></button>
         </div>
       )}
 
