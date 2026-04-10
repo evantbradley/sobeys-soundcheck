@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Sparkles, Brain, CheckSquare, 
   Lock, X, ShieldCheck, Headphones, AlertCircle, MapPin, 
-  Award, Minus, Plus, Activity, User, Volume2, Shield, Circle
+  Award, Minus, Plus, Activity, User, Volume2, Shield, Circle,
+  Smartphone, QrCode
 } from 'lucide-react';
 
 const useAudioEngine = () => {
