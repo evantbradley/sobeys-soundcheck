@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Sparkles, Brain, CheckSquare, 
   Lock, X, ShieldCheck, Headphones, AlertCircle, MapPin, 
   Award, Minus, Plus, Activity, User, Volume2, Shield, Circle,
-  Smartphone, QrCode
+  Smartphone, QrCode, EyeOff, Bluetooth, Cpu
 } from 'lucide-react';
 
 const useAudioEngine = () => {
@@ -31,7 +31,6 @@ const useAudioEngine = () => {
     window.speechSynthesis.cancel();
   };
 
-  // Using reliable .mp3 files that work on all iPads/iPhones/Browsers
   const startEnvironmentalTest = (type, volumeLevel) => {
     initAudio();
     stopAll();
@@ -81,7 +80,6 @@ const useAudioEngine = () => {
       window.speechSynthesis.speak(utterance);
     };
     
-    // Start speech after 1 second of noise
     setTimeout(() => loopSpeech(), 1000);
   };
 
@@ -129,12 +127,20 @@ export default function App() {
     setLowFreqVol(5);
   };
 
-  // Hard stop audio when component unmounts
   useEffect(() => {
     return () => audio.stopAll();
   }, []);
 
-  // Update live audio when sliders change
+  // Sync audio with step changes
+  useEffect(() => {
+    if (currentFlow === 'instore') {
+      if (step === 5) { audio.startEnvironmentalTest('high', highFreqVol); }
+      else if (step === 6) { audio.startEnvironmentalTest('low', lowFreqVol); }
+      else if (step === 9) { setSimMode('untreated'); audio.startCafeSimulation(); } // Shifted to step 9
+      else { audio.stopAll(); }
+    }
+  }, [currentFlow, step]);
+
   useEffect(() => { if (step === 5) audio.updateTestVolume(highFreqVol); }, [highFreqVol]);
   useEffect(() => { if (step === 6) audio.updateTestVolume(lowFreqVol); }, [lowFreqVol]);
 
@@ -157,8 +163,8 @@ export default function App() {
 
   const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
   
-  // Progress Bar calculation
-  const progress = currentFlow === 'instore' ? (step / 10) * 100 : currentFlow === 'o2o' ? (step / 4) * 100 : 0;
+  // Progress Bar calculation (Updated to 11 steps for instore)
+  const progress = currentFlow === 'instore' ? (step / 11) * 100 : currentFlow === 'o2o' ? (step / 4) * 100 : 0;
 
   const LikertButtons = () => (
     <div className="flex flex-col gap-3 w-full max-w-md mt-10">
@@ -263,7 +269,7 @@ export default function App() {
             </div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Prepare for Audio</h2>
             <p className="text-2xl font-light leading-relaxed text-[#3E3E3E] mb-8">For the next steps, please take a sanitizing wipe, clean the earpads, and put on the headphones.</p>
-            <RHButton onClick={() => { setStep(5); audio.startEnvironmentalTest('high', highFreqVol); }} className="!py-6 text-2xl w-full max-w-sm">I'm Ready</RHButton>
+            <RHButton onClick={() => { setStep(5); }} className="!py-6 text-2xl w-full max-w-sm">I'm Ready</RHButton>
           </div>
         )}
 
@@ -284,7 +290,7 @@ export default function App() {
                   <Plus size={48} className="text-[#3E3E3E]" />
                 </button>
               </div>
-              <RHButton onClick={() => { setStep(6); audio.startEnvironmentalTest('low', lowFreqVol); }} className="w-full max-w-sm">Confirm Level</RHButton>
+              <RHButton onClick={() => { setStep(6); }} className="w-full max-w-sm">Confirm Level</RHButton>
             </div>
           </div>
         )}
@@ -318,11 +324,40 @@ export default function App() {
             <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 bg-white p-10 rounded-3xl shadow-xl border border-[#E8E4DB]">
               You aren't imagining the exhaustion. When you lose specific frequencies (like the sounds you just measured), your brain works overtime to "fill in the blanks" in conversations. This is why socializing leaves you drained.
             </p>
-            <RHButton onClick={() => { setStep(8); setSimMode('untreated'); audio.startCafeSimulation(); }} className="mt-4 shadow-lg">Experience the Solution</RHButton>
+            <RHButton onClick={() => { setStep(8); }} className="mt-4 shadow-lg">Discover the Solution</RHButton>
           </div>
         )}
 
+        {/* NEW STEP 8: Educational "Did You Know" Bridge */}
         {currentFlow === 'instore' && step === 8 && (
+          <div className="space-y-8 animate-fade-in w-full max-w-5xl flex flex-col items-center">
+            <h2 className="text-5xl italic text-[#3E3E3E] mb-2">Modern Technology</h2>
+            <p className="text-2xl font-light opacity-80 mb-6">The stigma is outdated. Here is what you need to know.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-4">
+              <div className="bg-white p-8 rounded-[2rem] border border-[#1B5234]/10 shadow-lg text-left flex flex-col items-start">
+                <div className="bg-[#F9F8F4] p-4 rounded-full mb-6 border border-[#E8E4DB]"><EyeOff size={32} className="text-[#1B5234]"/></div>
+                <h3 className="text-2xl font-bold text-[#3E3E3E] mb-3">100% Invisible</h3>
+                <p className="text-lg font-light leading-relaxed text-[#3E3E3E]/80">Modern devices are custom-molded to sit deep inside your ear canal, completely hidden from view.</p>
+              </div>
+              <div className="bg-white p-8 rounded-[2rem] border border-[#1B5234]/10 shadow-lg text-left flex flex-col items-start">
+                <div className="bg-[#F9F8F4] p-4 rounded-full mb-6 border border-[#E8E4DB]"><Bluetooth size={32} className="text-[#1B5234]"/></div>
+                <h3 className="text-2xl font-bold text-[#3E3E3E] mb-3">Bluetooth Connectivity</h3>
+                <p className="text-lg font-light leading-relaxed text-[#3E3E3E]/80">They act as wireless earbuds. Stream phone calls, podcasts, and your TV directly into your ears.</p>
+              </div>
+              <div className="bg-white p-8 rounded-[2rem] border border-[#1B5234]/10 shadow-lg text-left flex flex-col items-start">
+                <div className="bg-[#F9F8F4] p-4 rounded-full mb-6 border border-[#E8E4DB]"><Cpu size={32} className="text-[#1B5234]"/></div>
+                <h3 className="text-2xl font-bold text-[#3E3E3E] mb-3">AI Processing</h3>
+                <p className="text-lg font-light leading-relaxed text-[#3E3E3E]/80">They don't just amplify sound. Onboard AI scans the environment 500x a second to instantly kill background noise.</p>
+              </div>
+            </div>
+            
+            <div className="pt-8"><RHButton onClick={() => { setStep(9); setSimMode('untreated'); audio.startCafeSimulation(); }}>Experience AI Audio</RHButton></div>
+          </div>
+        )}
+
+        {/* STEP 9: Hear the Difference (AI Simulation) */}
+        {currentFlow === 'instore' && step === 9 && (
           <div className="space-y-8 animate-fade-in w-full max-w-5xl flex flex-col items-center">
             <div className="mx-auto bg-white w-20 h-20 rounded-full flex items-center justify-center mb-2 shadow-sm border border-[#1B5234]/10"><Sparkles size={40} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#3E3E3E]">Hear The Difference</h2>
@@ -343,11 +378,12 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div className="pt-6"><RHButton onClick={() => { setStep(9); audio.stopAll(); }}>View My Profile</RHButton></div>
+            <div className="pt-6"><RHButton onClick={() => { setStep(10); audio.stopAll(); }}>View My Profile</RHButton></div>
           </div>
         )}
 
-        {currentFlow === 'instore' && step === 9 && (
+        {/* STEP 10: Profile Reveal */}
+        {currentFlow === 'instore' && step === 10 && (
           <div className="space-y-8 animate-fade-in w-full max-w-4xl">
             <div className="mx-auto bg-white w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm border border-[#1B5234]/10"><User size={48} className="text-[#1B5234]" /></div>
             <h2 className="text-5xl italic text-[#1B5234] mb-8">Your Listening Profile</h2>
@@ -370,11 +406,12 @@ export default function App() {
               </div>
             </div>
             
-            <div className="pt-8"><RHButton onClick={() => setStep(10)}>Continue to Claim Scene+ Reward</RHButton></div>
+            <div className="pt-8"><RHButton onClick={() => setStep(11)}>Continue to Claim Scene+ Reward</RHButton></div>
           </div>
         )}
 
-        {currentFlow === 'instore' && step === 10 && (
+        {/* STEP 11: Scene+ Vault */}
+        {currentFlow === 'instore' && step === 11 && (
           <div className="w-full max-w-3xl space-y-8 animate-fade-in text-left">
             <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-2 border-[#E8E4DB] relative overflow-hidden">
               <div className="flex flex-col gap-8">
@@ -396,7 +433,6 @@ export default function App() {
                     <p className="text-sm font-light opacity-90 leading-snug font-sans text-[#3E3E3E]"><strong className="font-bold">Required:</strong> I consent to securely save my profile to my Sobeys Pharmacy account for Scene+ rewards.</p>
                   </div>
 
-                  {/* B2B Ad Space / Consent */}
                   {frictionScore >= 6 && (
                     <div className="pt-6 border-t border-[#E8E4DB]">
                       <p className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-4">Sobeys Preferred Local Partners</p>
@@ -509,7 +545,7 @@ export default function App() {
 
       </main>
       
-      {currentFlow === 'instore' && step > 0 && step < 10 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
+      {currentFlow === 'instore' && step > 0 && step < 11 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
       {currentFlow === 'o2o' && step > 0 && step < 4 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
 
       {currentFlow === 'enterprise' && (
