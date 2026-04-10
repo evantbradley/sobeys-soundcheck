@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
   Shield, Brain, CheckSquare, QrCode, Clock, MapPin, Lock, X, Building, ShieldCheck,
-  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear
+  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, RefreshCw
 } from 'lucide-react';
 
 const useAudioEngine = () => {
@@ -65,13 +65,11 @@ const useAudioEngine = () => {
 };
 
 export default function App() {
-  // Routing States: 'home', 'instore', 'o2o', 'enterprise'
   const [currentFlow, setCurrentFlow] = useState('home');
   const [step, setStep] = useState(0);
   
   const [consentGiven, setConsentGiven] = useState(false);
   const [simMode, setSimMode] = useState('untreated');
-  const [activeTechTab, setActiveTechTab] = useState(0);
   const [activeEduTab, setActiveEduTab] = useState(0);
   const [frictionScore, setFrictionScore] = useState(0);
   
@@ -80,7 +78,6 @@ export default function App() {
 
   const audio = useAudioEngine();
 
-  // Reset function to clear all states when returning home
   const returnHome = () => {
     audio.stopAll();
     setCurrentFlow('home');
@@ -89,25 +86,6 @@ export default function App() {
     setConsentGiven(false);
   };
 
-  // Ghost Protocol: 5-Minute Inactivity Reset
-  useEffect(() => {
-    let timeout;
-    const resetTimer = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        if (currentFlow !== 'home' && currentFlow !== 'enterprise') {
-          returnHome();
-        }
-      }, 300000); // 5 mins
-    };
-    window.addEventListener('mousemove', resetTimer);
-    window.addEventListener('touchstart', resetTimer);
-    window.addEventListener('keydown', resetTimer);
-    resetTimer();
-    return () => { clearTimeout(timeout); window.removeEventListener('mousemove', resetTimer); window.removeEventListener('touchstart', resetTimer); window.removeEventListener('keydown', resetTimer); };
-  }, [currentFlow]);
-
-  // Audio lifecycle management for the In-Store flow
   useEffect(() => {
     if (currentFlow === 'instore' && step === 6) {
       setSimMode('untreated');
@@ -128,11 +106,17 @@ export default function App() {
   const back = () => { setStep(s => Math.max(0, s - 1)); };
 
   const RHButton = ({ children, onClick, variant="p", className="", disabled=false }) => (
-    <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
+    <button onClick={onClick} disabled={disabled} className={`px-10 py-5 rounded-full transition-all duration-500 text-xl font-light cursor-pointer ${disabled ? "bg-[#3E3E3E]/20 text-[#3E3E3E]/50 cursor-not-allowed" : variant === "p" ? "bg-[#1B5234] text-[#F9F8F4] hover:bg-[#133c26] active:scale-95 shadow-md" : "bg-[#E8E4DB] text-[#3E3E3E] hover:bg-[#DAD4C7] active:scale-95"} ${className}`}>{children}</button>
   );
 
   const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
   const progress = currentFlow === 'instore' ? (step / 8) * 100 : currentFlow === 'o2o' ? (step / 3) * 100 : 0;
+
+  const eduContent = [
+    { icon: <Brain size={40}/>, title: "The Cognitive Tax", body: "When you lose high frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day." },
+    { icon: <Clock size={40}/>, title: "The Decade of Delay", body: "The average adult struggles with hearing decline for 7 to 10 years before seeking help. That is a decade of missed punchlines. Treating it early preserves neural pathways." },
+    { icon: <RefreshCw size={40}/>, title: "Modern Truths", body: "The stigma is outdated. Constantly asking 'pardon?' ages us far more than wearing a hidden micro-computer. Modern tech uses AI to isolate human connection." }
+  ];
 
   return (
     <div className={`h-screen w-full font-serif overflow-hidden relative flex flex-col items-center justify-center p-8 text-center transition-colors duration-1000 ${bgClass}`}>
@@ -166,7 +150,6 @@ export default function App() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl pt-8">
-              {/* Option A: Full In-Store */}
               <div onClick={() => { setCurrentFlow('instore'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
                 <div className="w-20 h-20 bg-[#F9F8F4] rounded-full flex items-center justify-center mb-6 group-hover:bg-[#1B5234] transition-colors"><Headphones size={40} className="text-[#1B5234] group-hover:text-white transition-colors"/></div>
                 <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">Premium Kiosk</h3>
@@ -174,7 +157,6 @@ export default function App() {
                 <span className="text-sm font-bold uppercase tracking-widest text-[#1B5234]">Launch Flow A</span>
               </div>
 
-              {/* Option B: Offline to Online (O2O) */}
               <div onClick={() => { setCurrentFlow('o2o'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
                 <div className="w-20 h-20 bg-[#F9F8F4] rounded-full flex items-center justify-center mb-6 group-hover:bg-[#1B5234] transition-colors"><Smartphone size={40} className="text-[#1B5234] group-hover:text-white transition-colors"/></div>
                 <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">Express O2O</h3>
@@ -197,8 +179,8 @@ export default function App() {
         )}
         
         {currentFlow === 'instore' && step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV volume frequently cause disagreements, or do you find yourself needing captions to follow the dialogue?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely / Never</RHButton></div></div>)}
-        {currentFlow === 'instore' && step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">It requires intense concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">I hear everything effortlessly</button></div></div>)}
-        {currentFlow === 'instore' && step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">No, I never avoid social situations</button></div></div>)}
+        {currentFlow === 'instore' && step === 2 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Crowd Check</h2><p className="text-2xl font-light opacity-90">In a lively bistro or family gathering, how much effort does it take to follow the punchline of a joke?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">It requires intense concentration</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">I catch most of it, but it's tiring</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">I hear everything effortlessly</button></div></div>)}
+        {currentFlow === 'instore' && step === 3 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">No, I never avoid social situations</button></div></div>)}
 
         {/* Education & Destigmatization */}
         {currentFlow === 'instore' && step === 4 && (
@@ -206,21 +188,17 @@ export default function App() {
             <h2 className="text-5xl italic text-[#3E3E3E] mb-6">The Hidden Impact</h2>
             <div className="w-full flex flex-col md:flex-row gap-6 bg-white p-8 rounded-[3rem] border border-[#1B5234]/10 shadow-lg">
               <div className="flex flex-col gap-3 flex-1">
-                {[
-                  { icon: <Brain size={24}/>, title: "The Cognitive Tax", content: "When you lose high frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day." },
-                  { icon: <Clock size={24}/>, title: "The Decade of Delay", content: "The average adult struggles with hearing decline for 7 to 10 years before seeking help. That is a decade of missed punchlines. Treating it early preserves neural pathways." },
-                  { icon: <RefreshCw size={24}/>, title: "Modern Truths", content: "The stigma is outdated. Constantly asking 'pardon?' ages us far more than wearing a hidden micro-computer. Modern tech uses AI to isolate human connection." }
-                ].map((tab, idx) => (
-                  <button key={idx} onClick={() => setActiveEduTab(idx)} className={`p-5 rounded-2xl flex items-center gap-4 transition-all duration-300 border-2 text-left ${activeEduTab === idx ? 'bg-[#F9F8F4] border-[#1B5234] shadow-sm' : 'bg-transparent border-transparent hover:bg-gray-50 opacity-60'}`}>
+                {eduContent.map((tab, idx) => (
+                  <button key={idx} onClick={() => setActiveEduTab(idx)} className={`p-5 rounded-2xl flex items-center gap-4 transition-all duration-300 border-2 text-left cursor-pointer ${activeEduTab === idx ? 'bg-[#F9F8F4] border-[#1B5234] shadow-sm' : 'bg-transparent border-transparent hover:bg-gray-50 opacity-60'}`}>
                     <div className={`${activeEduTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.icon}</div>
                     <span className={`font-bold text-lg ${activeEduTab === idx ? 'text-[#1B5234]' : 'text-[#3E3E3E]'}`}>{tab.title}</span>
                   </button>
                 ))}
               </div>
               <div className="flex-[1.5] bg-[#F9F8F4] rounded-2xl p-8 flex flex-col justify-center text-left border border-[#E8E4DB]">
-                <div className="text-[#1B5234] mb-6">{[<Brain size={40}/>, <Clock size={40}/>, <RefreshCw size={40}/>][activeEduTab]}</div>
-                <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">{["The Cognitive Tax", "The Decade of Delay", "Modern Truths"][activeEduTab]}</h3>
-                <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/90">{["When you lose high frequencies, your brain works overtime to 'fill in the blanks.' This Cognitive Load is the reason socializing can leave you physically exhausted at the end of the day.", "The average adult struggles with hearing decline for 7 to 10 years before seeking help. That is a decade of missed punchlines. Treating it early preserves neural pathways.", "The stigma is outdated. Constantly asking 'pardon?' ages us far more than wearing a hidden micro-computer. Modern tech uses AI to isolate human connection."][activeEduTab]}</p>
+                <div className="text-[#1B5234] mb-6">{eduContent[activeEduTab].icon}</div>
+                <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">{eduContent[activeEduTab].title}</h3>
+                <p className="text-xl font-light leading-relaxed text-[#3E3E3E]/90">{eduContent[activeEduTab].body}</p>
               </div>
             </div>
             <div className="pt-6"><RHButton onClick={() => next(0)}>Continue to Technology</RHButton></div>
@@ -247,9 +225,9 @@ export default function App() {
             <p className="text-2xl font-light leading-relaxed text-[#3E3E3E]/90 text-center px-4">Modern technology uses AI to instantly suppress background noise. Tap the enhancements below to hear the clarity.</p>
             <div className="w-full bg-white p-6 rounded-[3rem] border border-[#1B5234]/20 shadow-lg mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <button onClick={() => handleSimChange('untreated')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Ear size={32} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-xl leading-tight">Standard<br/>Hearing</span></button>
-                <button onClick={() => handleSimChange('suppression')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Shield size={32} className={simMode === 'suppression' ? 'text-white' : ''}/><span className="font-bold text-xl leading-tight">Noise<br/>Suppression</span></button>
-                <button onClick={() => handleSimChange('active')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-xl scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Sparkles size={32} className={simMode === 'active' ? 'text-white' : ''}/><span className="font-bold text-xl leading-tight">AI Voice<br/>Clarity</span></button>
+                <button onClick={() => handleSimChange('untreated')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 cursor-pointer ${simMode === 'untreated' ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Ear size={32} className={simMode === 'untreated' ? 'text-[#1B5234]' : ''}/><span className="font-bold text-xl leading-tight">Standard<br/>Hearing</span></button>
+                <button onClick={() => handleSimChange('suppression')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 cursor-pointer ${simMode === 'suppression' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Shield size={32} className={simMode === 'suppression' ? 'text-white' : ''}/><span className="font-bold text-xl leading-tight">Noise<br/>Suppression</span></button>
+                <button onClick={() => handleSimChange('active')} className={`p-6 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center gap-3 cursor-pointer ${simMode === 'active' ? 'bg-[#1B5234] text-white border-[#1B5234] shadow-xl scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}><Sparkles size={32} className={simMode === 'active' ? 'text-white' : ''}/><span className="font-bold text-xl leading-tight">AI Voice<br/>Clarity</span></button>
               </div>
             </div>
             <div className="pt-6"><RHButton onClick={() => next(0)}>View My Profile</RHButton></div>
@@ -294,11 +272,11 @@ export default function App() {
                   <input type="tel" placeholder="Mobile Number" className="w-full bg-white/10 text-white placeholder-white/60 p-4 rounded-2xl outline-none font-serif italic text-lg border border-white/20 backdrop-blur-sm" />
                   <input type="text" placeholder="Scene+ Card (16 Digits)" className="w-full col-span-2 bg-white/20 text-white placeholder-white/70 p-5 rounded-2xl outline-none font-mono text-xl tracking-widest border border-white/30 backdrop-blur-sm shadow-inner" maxLength={16} />
                 </div>
-                <div className="flex items-start gap-4 bg-black/20 p-4 rounded-2xl">
-                  <button onClick={() => setConsentGiven(!consentGiven)} className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-white" /> : <div className="w-7 h-7 border-2 border-white/50 rounded bg-white/10" />}</button>
+                <div className="flex items-start gap-4 bg-black/20 p-4 rounded-2xl cursor-pointer" onClick={() => setConsentGiven(!consentGiven)}>
+                  <div className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-white" /> : <div className="w-7 h-7 border-2 border-white/50 rounded bg-white/10" />}</div>
                   <p className="text-sm font-light opacity-90 leading-snug font-sans">I consent to securely save my profile. A Sobeys Partner may contact me regarding solutions based on my results.</p>
                 </div>
-                <button onClick={() => { alert("Profile Saved! Points Awarded."); returnHome(); }} disabled={!consentGiven} className={`w-full py-6 rounded-full font-bold uppercase tracking-widest text-lg transition-all ${consentGiven ? 'bg-white text-[#1B5234] hover:scale-[1.02] shadow-xl' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>Save Profile & Claim Points</button>
+                <button onClick={() => { alert("Profile Saved! Points Awarded."); returnHome(); }} disabled={!consentGiven} className={`w-full py-6 rounded-full font-bold uppercase tracking-widest text-lg transition-all ${consentGiven ? 'bg-white text-[#1B5234] hover:scale-[1.02] shadow-xl cursor-pointer' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>Save Profile & Claim Points</button>
               </div>
             </div>
           </div>
@@ -308,7 +286,7 @@ export default function App() {
         {/* FLOW B: EXPRESS O2O (Offline to Online) */}
         {/* --------------------------------------------------------- */}
         {currentFlow === 'o2o' && step === 0 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Media Check</h2><p className="text-2xl font-light opacity-90">Does the TV volume frequently cause disagreements, or do you find yourself needing captions to follow the dialogue?</p><div className="flex justify-center gap-4"><RHButton onClick={() => next(1)}>Frequently</RHButton><RHButton onClick={() => next(0)} variant="s">Rarely / Never</RHButton></div></div>)}
-        {currentFlow === 'o2o' && step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E]">No, I never avoid social situations</button></div></div>)}
+        {currentFlow === 'o2o' && step === 1 && (<div className="space-y-8 w-full max-w-xl animate-fade-in"><h2 className="text-4xl leading-tight">The Social Check</h2><p className="text-2xl font-light opacity-90">Do you ever find yourself avoiding social gatherings or restaurants because listening in the noise is simply too exhausting?</p><div className="grid grid-cols-1 gap-4 text-left"><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Yes, I often avoid noisy places</button><button onClick={() => next(1)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">Sometimes, depending on my energy</button><button onClick={() => next(0)} className="p-6 rounded-3xl bg-[#E8E4DB]/50 hover:bg-[#E8E4DB] transition-all text-xl font-bold text-[#3E3E3E] cursor-pointer">No, I never avoid social situations</button></div></div>)}
         {currentFlow === 'o2o' && step === 2 && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center text-center">
             <div className="text-[#1B5234] mb-2 bg-white p-6 rounded-full shadow-sm border border-[#1B5234]/10"><Brain size={64}/></div>
@@ -338,7 +316,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            <div className="text-center pt-4"><button onClick={returnHome} className="text-[#3E3E3E]/50 font-bold uppercase tracking-widest text-sm hover:text-[#3E3E3E]">Return to Home Screen</button></div>
+            <div className="text-center pt-4"><button onClick={returnHome} className="text-[#3E3E3E]/50 font-bold uppercase tracking-widest text-sm hover:text-[#3E3E3E] cursor-pointer">Return to Home Screen</button></div>
           </div>
         )}
 
@@ -439,14 +417,14 @@ export default function App() {
       </main>
       
       {/* Navigation Layer */}
-      {currentFlow === 'instore' && step > 0 && step < 8 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
-      {currentFlow === 'o2o' && step > 0 && step < 3 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50"><ChevronLeft size={24} /> Back</button>)}
+      {currentFlow === 'instore' && step > 0 && step < 8 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
+      {currentFlow === 'o2o' && step > 0 && step < 3 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
 
       {/* Enterprise Navigation */}
       {currentFlow === 'enterprise' && (
         <div className="fixed bottom-8 left-0 w-full flex justify-between px-12 z-50">
-          <button onClick={() => setStep(step - 1)} disabled={step === 0} className={`flex items-center gap-2 font-bold uppercase tracking-widest text-sm transition-all bg-white px-4 py-2 rounded-full shadow-sm ${step === 0 ? 'opacity-30' : 'text-[#3E3E3E]/60 hover:text-[#1B5234]'}`}><ChevronLeft size={20}/> Previous</button>
-          {step < 4 ? (<button onClick={() => setStep(step + 1)} className="flex items-center gap-2 text-[#3E3E3E]/60 hover:text-[#1B5234] font-bold uppercase tracking-widest text-sm transition-all bg-white px-4 py-2 rounded-full shadow-sm">Next <ChevronRight size={20}/></button>) : (<button onClick={returnHome} className="flex items-center gap-2 text-[#F9F8F4] font-bold uppercase tracking-widest text-sm transition-all bg-[#1B5234] px-6 py-3 rounded-full shadow-lg hover:bg-[#133c26] border border-[#1B5234]">Exit Portal <Lock size={16}/></button>)}
+          <button onClick={() => setStep(step - 1)} disabled={step === 0} className={`flex items-center gap-2 font-bold uppercase tracking-widest text-sm transition-all bg-white px-4 py-2 rounded-full shadow-sm cursor-pointer ${step === 0 ? 'opacity-30' : 'text-[#3E3E3E]/60 hover:text-[#1B5234]'}`}><ChevronLeft size={20}/> Previous</button>
+          {step < 4 ? (<button onClick={() => setStep(step + 1)} className="flex items-center gap-2 text-[#3E3E3E]/60 hover:text-[#1B5234] font-bold uppercase tracking-widest text-sm transition-all bg-white px-4 py-2 rounded-full shadow-sm cursor-pointer">Next <ChevronRight size={20}/></button>) : (<button onClick={returnHome} className="flex items-center gap-2 text-[#F9F8F4] font-bold uppercase tracking-widest text-sm transition-all bg-[#1B5234] px-6 py-3 rounded-full shadow-lg hover:bg-[#133c26] border border-[#1B5234] cursor-pointer">Exit Portal <Lock size={16}/></button>)}
         </div>
       )}
 
@@ -454,12 +432,12 @@ export default function App() {
       {showPinModal && (
         <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center animate-fade-in backdrop-blur-md">
           <div className="bg-[#F9F8F4] p-8 rounded-3xl w-full max-w-sm text-center relative shadow-2xl border-2 border-[#1B5234]">
-            <button onClick={() => setShowPinModal(false)} className="absolute top-4 right-4 text-[#3E3E3E]/50 hover:text-[#3E3E3E]"><X size={20}/></button>
+            <button onClick={() => setShowPinModal(false)} className="absolute top-4 right-4 text-[#3E3E3E]/50 hover:text-[#3E3E3E] cursor-pointer"><X size={20}/></button>
             <Lock size={32} className="mx-auto text-[#1B5234] mb-6" />
             <h3 className="text-2xl font-bold mb-6 font-sans uppercase tracking-widest text-[#3E3E3E]">Executive Access</h3>
             <form onSubmit={handlePinSubmit}>
               <input type="password" placeholder="Enter PIN" value={pinInput} onChange={(e) => setPinInput(e.target.value)} className="w-full text-center tracking-[0.5em] p-4 bg-[#E8E4DB] rounded-xl outline-none mb-6 font-bold text-2xl text-[#3E3E3E]" autoFocus />
-              <button type="submit" className="w-full py-4 bg-[#1B5234] text-[#F9F8F4] rounded-xl font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] transition-all">Unlock</button>
+              <button type="submit" className="w-full py-4 bg-[#1B5234] text-[#F9F8F4] rounded-xl font-bold uppercase tracking-widest text-lg hover:bg-[#133c26] transition-all cursor-pointer">Unlock</button>
             </form>
           </div>
         </div>
