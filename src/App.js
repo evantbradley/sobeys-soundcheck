@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Volume2, Sparkles, Smartphone, BatteryCharging, 
   Shield, Brain, CheckSquare, QrCode, Clock, MapPin, Lock, X, Building, ShieldCheck,
-  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, RefreshCw
+  Headphones, AlertCircle, ShoppingBag, Target, TrendingUp, DollarSign, Award, Ear, RefreshCw, UserCheck
 } from 'lucide-react';
 
 const useAudioEngine = () => {
@@ -86,6 +86,7 @@ export default function App() {
     setConsentGiven(false);
   };
 
+  // Only manage audio start/stop based on the slide step. NO TIMERS.
   useEffect(() => {
     if (currentFlow === 'instore' && step === 6) {
       setSimMode('untreated');
@@ -276,7 +277,7 @@ export default function App() {
                   <div className="mt-1 shrink-0">{consentGiven ? <CheckSquare size={28} className="text-white" /> : <div className="w-7 h-7 border-2 border-white/50 rounded bg-white/10" />}</div>
                   <p className="text-sm font-light opacity-90 leading-snug font-sans">I consent to securely save my profile. A Sobeys Partner may contact me regarding solutions based on my results.</p>
                 </div>
-                <button onClick={() => { alert("Profile Saved! Points Awarded."); returnHome(); }} disabled={!consentGiven} className={`w-full py-6 rounded-full font-bold uppercase tracking-widest text-lg transition-all ${consentGiven ? 'bg-white text-[#1B5234] hover:scale-[1.02] shadow-xl cursor-pointer' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>Save Profile & Claim Points</button>
+                <button onClick={() => { alert("Profile Saved! Points Awarded."); returnHome(); }} disabled={!consentGiven} className={`w-full py-6 rounded-full font-bold uppercase tracking-widest text-lg transition-all cursor-pointer ${consentGiven ? 'bg-white text-[#1B5234] hover:scale-[1.02] shadow-xl' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>Save Profile & Claim Points</button>
               </div>
             </div>
           </div>
