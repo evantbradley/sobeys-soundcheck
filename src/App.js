@@ -566,20 +566,28 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full mb-8">
-              {/* Pillar 1: Market Graph */}
+              {/* Pillar 1: Market Size (Replaced Graph) */}
               <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-[#1B5234]/10 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">Global OTC Market Growth</h3>
-                  <p className="text-sm font-light text-[#3E3E3E]/80 mb-6">The fastest growing consumer health category.</p>
+                  <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">The U.S. Retail Precedent</h3>
+                  <p className="text-sm font-light text-[#3E3E3E]/80 mb-6">Explosive growth in the direct-to-consumer health aisle.</p>
                 </div>
-                <div className="flex items-end gap-6 h-40 border-b-2 border-l-2 border-[#E8E4DB] p-4 pt-0">
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <div className="w-full bg-[#E8E4DB] rounded-t-md h-[40%] relative flex justify-center items-end pb-2 transition-all hover:bg-[#DAD4C7]"><span className="font-bold text-[#3E3E3E] text-sm">~$410M</span></div>
-                    <span className="text-xs font-bold text-[#3E3E3E]/60">2024</span>
+                <div className="space-y-4">
+                  <div className="bg-[#F9F8F4] p-4 rounded-xl flex justify-between items-center border border-[#E8E4DB]">
+                    <span className="font-bold text-[#3E3E3E]">2024 Market Size</span>
+                    <span className="text-xl font-black text-[#1B5234]">~$410M</span>
                   </div>
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <div className="w-full bg-[#1B5234] rounded-t-md h-[100%] relative flex justify-center items-end pb-2 shadow-lg"><span className="font-bold text-white text-sm">>$1.0B</span></div>
-                    <span className="text-xs font-bold text-[#3E3E3E]/60">2033</span>
+                  <div className="bg-[#F9F8F4] p-4 rounded-xl flex justify-between items-center border border-[#E8E4DB]">
+                    <span className="font-bold text-[#3E3E3E]">2033 Projection</span>
+                    <span className="text-xl font-black text-[#1B5234]">>$1.0B</span>
+                  </div>
+                  <div className="pt-2">
+                    <p className="text-xs uppercase tracking-widest font-bold text-[#3E3E3E]/50 mb-2">Active U.S. Retailers</p>
+                    <div className="flex flex-wrap gap-2">
+                      {['CVS', 'Walgreens', 'Walmart', 'Best Buy'].map(brand => (
+                        <span key={brand} className="bg-[#E8E4DB] text-[#3E3E3E] px-3 py-1 rounded-md text-sm font-bold">{brand}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
