@@ -6,145 +6,173 @@ import {
   EyeOff, Bluetooth, BatteryCharging, Cpu, TrendingUp, Activity
 } from 'lucide-react';
 
+// ============================================================================
+// CHROME-OPTIMIZED AUDIO ENGINE
+// ============================================================================
 const useAudioEngine = () => {
-  const audioCtxRef = useRef(null);
-  const oscRef = useRef(null);
-  const gainRef = useRef(null);
+  const ctxRef = useRef(null);
   
-  // Mathematical Brown Noise Generator for unblockable static/background
-  const noiseNodeRef = useRef(null);
-  const noiseGainRef = useRef(null);
+  // Environmental Tones
+  const envAudioRef = useRef(null);
+  
+  // Simulation
+  const noiseElRef = useRef(null);
+  const voiceElRef = useRef(null);
+  const noiseFilterRef = useRef(null);
+  const voiceFilterRef = useRef(null);
 
   const initAudio = () => {
-    if (!audioCtxRef.current) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      audioCtxRef.current = new Ctx();
+    if (!ctxRef.current) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      ctxRef.current = new AudioContext();
     }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
+    if (ctxRef.current.state === 'suspended') {
+      ctxRef.current.resume();
     }
   };
 
-  const playTone = (frequency, volumeLevel) => {
+  const playEnvironmental = (type, volume) => {
     initAudio();
-    stopTone();
-    const osc = audioCtxRef.current.createOscillator();
-    const gain = audioCtxRef.current.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = frequency; 
-    gain.gain.value = (volumeLevel / 10) * 0.05; 
-    osc.connect(gain);
-    gain.connect(audioCtxRef.current.destination);
-    osc.start();
-    oscRef.current = osc;
-    gainRef.current = gain;
-  };
-
-  const updateToneVolume = (volumeLevel) => {
-    if (gainRef.current) {
-      gainRef.current.gain.setValueAtTime((volumeLevel / 10) * 0.05, audioCtxRef.current.currentTime);
-    }
-  };
-
-  const stopTone = () => {
-    if (oscRef.current) {
-      try { oscRef.current.stop(); } catch(e){}
-      oscRef.current.disconnect();
-      oscRef.current = null;
-    }
-  };
-
-  // Generates infinite rushing static (Brown Noise) mathematically. Unblockable by Safari.
-  const startBackgroundDrone = () => {
-    initAudio();
-    stopBackgroundDrone();
+    stopEnvironmental();
     
-    const bufferSize = audioCtxRef.current.sampleRate * 2; 
-    const buffer = audioCtxRef.current.createBuffer(1, bufferSize, audioCtxRef.current.sampleRate);
-    const data = buffer.getChannelData(0);
-    let lastOut = 0;
-    for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        data[i] = (lastOut + (0.02 * white)) / 1.02;
-        lastOut = data[i];
-        data[i] *= 3.5; 
-    }
+    let url = '';
+    if (type === 'high') url = 'https://www.soundjay.com/nature/sounds/bird-song-1.mp3';
+    else if (type === 'mid') url = 'https://www.soundjay.com/nature/sounds/rain-01.mp3';
+    else if (type === 'low') url = 'https://www.soundjay.com/transportation/sounds/boat-horn-1.mp3';
 
-    noiseNodeRef.current = audioCtxRef.current.createBufferSource();
-    noiseNodeRef.current.buffer = buffer;
-    noiseNodeRef.current.loop = true;
-
-    noiseGainRef.current = audioCtxRef.current.createGain();
-    noiseGainRef.current.gain.value = 0.15; // Start loud for standard hearing
-
-    noiseNodeRef.current.connect(noiseGainRef.current);
-    noiseGainRef.current.connect(audioCtxRef.current.destination);
-    noiseNodeRef.current.start();
+    const audio = new Audio(url);
+    audio.crossOrigin = "anonymous";
+    audio.loop = true;
+    audio.volume = volume / 10;
+    envAudioRef.current = audio;
+    audio.play().catch(e => console.log("Audio play prevented:", e));
   };
 
-  const stopBackgroundDrone = () => {
-    if (noiseNodeRef.current) {
-      try { noiseNodeRef.current.stop(); } catch(e){}
-      noiseNodeRef.current.disconnect();
-      noiseNodeRef.current = null;
-    }
-    if (noiseGainRef.current) {
-      noiseGainRef.current.disconnect();
-      noiseGainRef.current = null;
-    }
-    window.speechSynthesis.cancel();
-  };
-
-  const liveUpdateFilters = (mode) => {
-    if (noiseGainRef.current && audioCtxRef.current) {
-      if (mode === 'untreated') noiseGainRef.current.gain.setValueAtTime(0.15, audioCtxRef.current.currentTime);
-      else if (mode === 'suppression') noiseGainRef.current.gain.setValueAtTime(0.03, audioCtxRef.current.currentTime);
-      else if (mode === 'active') noiseGainRef.current.gain.setValueAtTime(0.005, audioCtxRef.current.currentTime);
+  const updateEnvironmentalVolume = (volume) => {
+    if (envAudioRef.current) {
+      envAudioRef.current.volume = volume / 10;
     }
   };
 
-  const speakWordTest = (text) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.85;
-    utterance.volume = 0.2; 
-    utterance.pitch = 0.6; 
-    window.speechSynthesis.speak(utterance);
+  const stopEnvironmental = () => {
+    if (envAudioRef.current) {
+      envAudioRef.current.pause();
+      envAudioRef.current.currentTime = 0;
+      envAudioRef.current = null;
+    }
   };
 
-  const speakSentence = (mode) => {
-    window.speechSynthesis.cancel();
-    const sentence = "I was walking down to the market the other day, and the weather was absolutely beautiful.";
-    const utterance = new SpeechSynthesisUtterance(sentence);
-    utterance.rate = 0.85;
+  const initSimulation = () => {
+    initAudio();
+    if (!noiseElRef.current) {
+      const noise = new Audio('https://www.soundjay.com/misc/sounds/restaurant-1.mp3');
+      noise.crossOrigin = "anonymous";
+      noise.loop = true;
+      
+      const voice = new Audio('https://upload.wikimedia.org/wikipedia/commons/4/4b/JFK_moon_speech.mp3');
+      voice.crossOrigin = "anonymous";
+      voice.loop = true;
+
+      const noiseSrc = ctxRef.current.createMediaElementSource(noise);
+      const voiceSrc = ctxRef.current.createMediaElementSource(voice);
+      
+      const noiseFilter = ctxRef.current.createBiquadFilter();
+      const voiceFilter = ctxRef.current.createBiquadFilter();
+
+      noiseSrc.connect(noiseFilter);
+      noiseFilter.connect(ctxRef.current.destination);
+
+      voiceSrc.connect(voiceFilter);
+      voiceFilter.connect(ctxRef.current.destination);
+
+      noiseElRef.current = noise;
+      voiceElRef.current = voice;
+      noiseFilterRef.current = noiseFilter;
+      voiceFilterRef.current = voiceFilter;
+    }
+  };
+
+  const playSimulation = () => {
+    initSimulation();
+    ctxRef.current.resume();
+    noiseElRef.current.play().catch(()=>{});
+    voiceElRef.current.currentTime = 12; // Start JFK at clear sentence
+    voiceElRef.current.play().catch(()=>{});
+    setFilterMode('untreated');
+  };
+
+  const playTestNoiseOnly = () => {
+    initSimulation();
+    ctxRef.current.resume();
+    noiseFilterRef.current.type = 'allpass';
+    noiseElRef.current.volume = 1.0;
+    noiseElRef.current.play().catch(()=>{});
+    if (voiceElRef.current) voiceElRef.current.pause();
+  };
+
+  const setFilterMode = (mode) => {
+    if (!ctxRef.current || !noiseElRef.current) return;
 
     if (mode === 'untreated') {
-      utterance.volume = 0.2; 
-      utterance.pitch = 0.5; 
+      noiseElRef.current.volume = 1.0;
+      noiseFilterRef.current.type = 'allpass';
+
+      voiceElRef.current.volume = 0.3;
+      voiceFilterRef.current.type = 'lowpass';
+      voiceFilterRef.current.frequency.value = 400; // Heavily muffled
     } else if (mode === 'suppression') {
-      utterance.volume = 0.6; 
-      utterance.pitch = 0.8;
+      noiseElRef.current.volume = 0.2;
+      noiseFilterRef.current.type = 'lowpass';
+      noiseFilterRef.current.frequency.value = 1000;
+
+      voiceElRef.current.volume = 0.6;
+      voiceFilterRef.current.type = 'lowpass';
+      voiceFilterRef.current.frequency.value = 1500;
     } else if (mode === 'active') {
-      utterance.volume = 1.0; 
-      utterance.pitch = 1.0;
+      noiseElRef.current.volume = 0.01; // Silent background
+
+      voiceElRef.current.volume = 1.0;
+      voiceFilterRef.current.type = 'highshelf'; // Crisp consonants
+      voiceFilterRef.current.frequency.value = 2000;
+      voiceFilterRef.current.gain.value = 10;
     }
-    
+  };
+
+  const speakWord = (word) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.rate = 0.85;
+    utterance.volume = 0.15; // Keep muffled and buried in noise for test
+    utterance.pitch = 0.6;
     window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSimulation = () => {
+    if (noiseElRef.current) {
+      noiseElRef.current.pause();
+      noiseElRef.current.currentTime = 0;
+    }
+    if (voiceElRef.current) {
+      voiceElRef.current.pause();
+      voiceElRef.current.currentTime = 0;
+    }
+    window.speechSynthesis.cancel();
   };
 
   const stopAll = () => {
-    stopTone();
-    stopBackgroundDrone();
-    window.speechSynthesis.cancel();
+    stopEnvironmental();
+    stopSimulation();
   };
 
-  return { 
-    initAudio, playTone, updateToneVolume, stopTone, 
-    startBackgroundDrone, stopBackgroundDrone, liveUpdateFilters, 
-    speakWordTest, speakSentence, stopAll 
+  return {
+    initAudio, playEnvironmental, updateEnvironmentalVolume, stopEnvironmental,
+    playSimulation, playTestNoiseOnly, setFilterMode, speakWord, stopSimulation, stopAll
   };
 };
 
+// ============================================================================
+// REACT APP
+// ============================================================================
 export default function App() {
   const [currentFlow, setCurrentFlow] = useState('home');
   const [step, setStep] = useState(0);
@@ -178,10 +206,43 @@ export default function App() {
     setWordStep(0);
   };
 
-  // Live Slider Updates
-  useEffect(() => { if (step === 6 && currentFlow === 'instore') audio.updateToneVolume(highFreqVol); }, [highFreqVol]);
-  useEffect(() => { if (step === 7 && currentFlow === 'instore') audio.updateToneVolume(midFreqVol); }, [midFreqVol]);
-  useEffect(() => { if (step === 8 && currentFlow === 'instore') audio.updateToneVolume(lowFreqVol); }, [lowFreqVol]);
+  useEffect(() => { return () => audio.stopAll(); }, []);
+
+  // Strict Audio Lifecycle Routing
+  useEffect(() => {
+    if (currentFlow === 'instore') {
+      if (step === 6) audio.playEnvironmental('high', highFreqVol);
+      else if (step === 7) audio.playEnvironmental('mid', midFreqVol);
+      else if (step === 8) audio.playEnvironmental('low', lowFreqVol);
+      else audio.stopEnvironmental();
+
+      if (step === 11) {
+        audio.playTestNoiseOnly();
+      } else if (step === 12) {
+        setSimMode('untreated');
+        audio.playSimulation();
+      } else {
+        audio.stopSimulation();
+      }
+    } else {
+      audio.stopAll();
+    }
+  }, [step, currentFlow]);
+
+  // Word Test Audio Trigger
+  useEffect(() => {
+    if (currentFlow === 'instore' && step === 11) {
+      const timer = setTimeout(() => {
+        audio.speakWord(testWords[wordStep].w);
+      }, 1500); 
+      return () => clearTimeout(timer);
+    }
+  }, [wordStep, step, currentFlow]);
+
+  // Live Sliders
+  useEffect(() => { if (step === 6) audio.updateEnvironmentalVolume(highFreqVol); }, [highFreqVol]);
+  useEffect(() => { if (step === 7) audio.updateEnvironmentalVolume(midFreqVol); }, [midFreqVol]);
+  useEffect(() => { if (step === 8) audio.updateEnvironmentalVolume(lowFreqVol); }, [lowFreqVol]);
 
   const handlePinSubmit = (e) => {
     e.preventDefault();
@@ -199,28 +260,7 @@ export default function App() {
     audio.stopAll();
   };
 
-  // Hard-wired Audio Triggers (Safari Proof)
-  const handleWordSelect = () => {
-    audio.initAudio();
-    if (wordStep < 4) {
-      setWordStep(w => w + 1);
-      setTimeout(() => audio.speakWordTest(testWords[wordStep + 1].w), 500);
-    } else {
-      setStep(12);
-      setSimMode('untreated');
-      audio.liveUpdateFilters('untreated');
-      setTimeout(() => audio.speakSentence('untreated'), 500);
-    }
-  };
-
-  const handleFilterClick = (mode) => {
-    audio.initAudio(); 
-    setSimMode(mode);
-    audio.liveUpdateFilters(mode);
-    audio.speakSentence(mode); 
-  };
-
-  const bgClass = currentFlow === 'enterprise' ? "bg-[#F9F8F4] text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
+  const bgClass = currentFlow === 'enterprise' ? "bg-white text-[#3E3E3E]" : "bg-[#F9F8F4] text-[#3E3E3E]";
   const progress = currentFlow === 'instore' ? (step / 14) * 100 : currentFlow === 'o2o' ? (step / 7) * 100 : 0;
 
   const ThreeOptions = () => (
@@ -241,6 +281,14 @@ export default function App() {
     { w: "Read", opts: ["Read", "Seed", "Weed"] }
   ];
 
+  const handleWordSelect = () => {
+    if (wordStep < 4) {
+      setWordStep(w => w + 1);
+    } else {
+      setStep(12);
+    }
+  };
+
   const clinics = ["London Audiology Centre", "Elgin Audiology", "Bentley Hearing Services"];
 
   return (
@@ -260,7 +308,7 @@ export default function App() {
       </div>
 
       {/* PROGRESS */}
-      {(currentFlow === 'instore' || currentFlow === 'o2o') && (<div className="fixed top-0 left-0 h-1.5 bg-[#E8E4DB] w-full z-50"><div className="h-full bg-[#1B5234] transition-all duration-700 ease-out" style={{ width: `${progress}%` }} /></div>)}
+      {currentFlow !== 'home' && currentFlow !== 'enterprise' && (<div className="fixed top-0 left-0 h-1.5 bg-[#E8E4DB] w-full z-50"><div className="h-full bg-[#1B5234] transition-all duration-700 ease-out" style={{ width: `${progress}%` }} /></div>)}
       
       {/* GLOBAL O2O QR CODE (Always visible during Express Flow) */}
       {currentFlow === 'o2o' && step > 0 && step < 7 && (
@@ -281,7 +329,7 @@ export default function App() {
           <div className="space-y-12 animate-fade-in relative w-full flex flex-col items-center">
             <h1 className="text-6xl font-serif text-[#1B5234] font-bold tracking-tight mb-4">Hearing Wellness Portal</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl pt-8">
-              <div onClick={() => { setCurrentFlow('instore'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
+              <div onClick={() => { audio.initAudio(); setCurrentFlow('instore'); setStep(0); }} className="bg-white p-10 rounded-[3rem] border border-[#1B5234]/20 shadow-xl cursor-pointer hover:scale-105 transition-all flex flex-col items-center group">
                 <div className="w-20 h-20 bg-[#F9F8F4] rounded-full flex items-center justify-center mb-6 group-hover:bg-[#1B5234] transition-colors"><Headphones size={40} className="text-[#1B5234] group-hover:text-white transition-colors"/></div>
                 <h3 className="text-3xl font-bold text-[#3E3E3E] mb-4">Premium Kiosk</h3>
               </div>
@@ -318,32 +366,23 @@ export default function App() {
           <div className="space-y-8 animate-fade-in w-full max-w-2xl flex flex-col items-center">
             <div className="bg-[#1B5234] w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-xl animate-pulse"><Headphones size={64} className="text-white" /></div>
             <p className="text-3xl font-light leading-relaxed text-[#3E3E3E] mb-8 text-center px-4">Please take a sanitizing wipe, clean the earpads, and put on the headphones.</p>
-            <button onClick={() => { setStep(6); audio.playTone(4000, highFreqVol); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-sm">I'm Ready</button>
+            <button onClick={() => { audio.initAudio(); setStep(6); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer w-full max-w-sm">I'm Ready</button>
           </div>
         )}
 
         {currentFlow === 'instore' && (step >= 6 && step <= 8) && (
           <div className="space-y-8 animate-fade-in w-full max-w-3xl flex flex-col items-center">
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] mb-2 px-8 text-center">
-              {step === 6 ? "High Pitch Tone" : step === 7 ? "Mid Pitch Tone" : "Low Pitch Tone"}
+              {step === 6 ? "High Frequencies (Birdsong)" : step === 7 ? "Mid Frequencies (Rainfall)" : "Low Frequencies (Boat Horn)"}
             </p>
-            <p className="text-xl font-light opacity-80">Tap the minus button until the tone disappears, then tap plus just until you hear it.</p>
+            <p className="text-xl font-light opacity-80">Tap the minus button until the sound disappears, then tap plus just until you hear it.</p>
             <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-[#1B5234]/10 w-full flex flex-col items-center mt-6">
               <div className="flex items-center justify-center gap-12 w-full mb-10">
                 <button onClick={() => (step === 6 ? setHighFreqVol : step === 7 ? setMidFreqVol : setLowFreqVol)(v => Math.max(0, v - 1))} className="w-24 h-24 rounded-full bg-[#F9F8F4] border-2 border-[#E8E4DB] flex items-center justify-center hover:bg-[#E8E4DB] active:scale-95 transition-all cursor-pointer shadow-sm"><Minus size={48} className="text-[#3E3E3E]" /></button>
                 <div className="flex gap-2">{[...Array(10)].map((_, i) => (<div key={i} className={`w-3 rounded-full transition-all duration-300 ${i < (step === 6 ? highFreqVol : step === 7 ? midFreqVol : lowFreqVol) ? 'bg-[#1B5234] h-16' : 'bg-[#E8E4DB] h-8'}`} />))}</div>
                 <button onClick={() => (step === 6 ? setHighFreqVol : step === 7 ? setMidFreqVol : setLowFreqVol)(v => Math.min(10, v + 1))} className="w-24 h-24 rounded-full bg-[#F9F8F4] border-2 border-[#E8E4DB] flex items-center justify-center hover:bg-[#E8E4DB] active:scale-95 transition-all cursor-pointer shadow-sm"><Plus size={48} className="text-[#3E3E3E]" /></button>
               </div>
-              <button 
-                onClick={() => {
-                  if (step === 6) { setStep(7); audio.playTone(1000, midFreqVol); }
-                  else if (step === 7) { setStep(8); audio.playTone(250, lowFreqVol); }
-                  else { setStep(9); audio.stopTone(); }
-                }} 
-                className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md w-full max-w-sm cursor-pointer"
-              >
-                Confirm Level
-              </button>
+              <button onClick={() => setStep(s => s + 1)} className="px-10 py-5 rounded-full bg-[#1B5234] text-[#F9F8F4] text-xl font-bold hover:bg-[#133c26] active:scale-95 shadow-md w-full max-w-sm cursor-pointer">Confirm Level</button>
             </div>
           </div>
         )}
@@ -375,7 +414,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <button onClick={() => { setStep(11); audio.startBackgroundDrone(); setTimeout(() => audio.speakWordTest(testWords[wordStep].w), 800); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer mt-8">Start Audio Challenge</button>
+            <button onClick={() => { audio.initAudio(); setStep(11); }} className="px-10 py-6 rounded-full bg-[#1B5234] text-[#F9F8F4] text-2xl font-bold hover:bg-[#133c26] active:scale-95 shadow-xl transition-all cursor-pointer mt-8">Start Audio Challenge</button>
           </div>
         )}
 
@@ -384,7 +423,7 @@ export default function App() {
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4">Listen to the background noise. Identify the word that is spoken.</p>
             <div className="w-full bg-white p-12 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4 flex flex-col items-center">
               <div className="text-sm font-bold uppercase tracking-widest text-[#1B5234] mb-6">Word {wordStep + 1} of 5</div>
-              <button onClick={() => audio.speakWordTest(testWords[wordStep].w)} className="mb-10 flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all shadow-sm cursor-pointer"><RefreshCw size={20}/> Replay Word</button>
+              <button onClick={() => audio.speakWord(testWords[wordStep].w)} className="mb-10 flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all shadow-sm cursor-pointer"><RefreshCw size={20}/> Replay Word</button>
               <div className="w-full border-t border-[#E8E4DB] pt-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl mx-auto">
                   {testWords[wordStep].opts.map(word => (
@@ -400,18 +439,13 @@ export default function App() {
           <div className="space-y-8 animate-fade-in w-full max-w-5xl flex flex-col items-center">
             <p className="text-4xl font-light leading-relaxed text-[#3E3E3E] text-center px-4 max-w-4xl">Listen to the human voice. Tap the filters below to instantly apply AI Digital Signal Processing.</p>
             <div className="w-full bg-white p-8 rounded-[3rem] border border-[#1B5234]/20 shadow-xl mt-4">
-              <div className="flex justify-center mb-8">
-                <button onClick={() => audio.speakSentence(simMode)} className="flex items-center gap-3 bg-[#F9F8F4] border-2 border-[#E8E4DB] text-[#3E3E3E] px-6 py-3 rounded-full font-bold uppercase tracking-widest text-sm hover:border-[#1B5234] active:scale-95 transition-all cursor-pointer">
-                  <PlayCircle size={20}/> Play Voice Demo
-                </button>
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                   { m: 'untreated', i: Volume2, t: "Standard Hearing" },
                   { m: 'suppression', i: Shield, t: "Noise Suppression" },
                   { m: 'active', i: Sparkles, t: "AI Voice Clarity" }
                 ].map(mode => (
-                  <button key={mode.m} onClick={() => handleFilterClick(mode.m)} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === mode.m ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
+                  <button key={mode.m} onClick={() => { setSimMode(mode.m); audio.setFilterMode(mode.m); }} className={`p-8 rounded-3xl transition-all duration-300 border-2 flex flex-col items-center justify-center gap-4 cursor-pointer ${simMode === mode.m ? 'bg-[#F9F8F4] border-[#1B5234] shadow-md scale-105' : 'bg-white border-transparent hover:bg-gray-50 text-[#3E3E3E]/60'}`}>
                     <mode.i size={48} className={simMode === mode.m ? 'text-[#1B5234]' : ''}/>
                     <span className="font-bold text-2xl leading-tight text-center">{mode.t.split(' ')[0]}<br/>{mode.t.split(' ')[1]}</span>
                   </button>
@@ -566,7 +600,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full mb-8">
-              {/* Pillar 1: Market Size (Replaced Graph) */}
               <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-[#1B5234]/10 flex flex-col justify-between">
                 <div>
                   <h3 className="text-2xl font-bold text-[#3E3E3E] mb-2">The U.S. Retail Precedent</h3>
@@ -592,7 +625,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Pillar 2: Canadian Advantage */}
               <div className="bg-gradient-to-br from-[#1B5234] to-[#133c26] p-8 rounded-[2rem] shadow-xl text-white flex flex-col justify-center relative overflow-hidden">
                  <div className="absolute -right-10 -top-10 opacity-10"><Sparkles size={200}/></div>
                  <div className="relative z-10">
@@ -603,7 +635,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Pillar 3: Immediate ROI */}
             <div className="w-full bg-white p-8 rounded-[2rem] shadow-xl border border-[#1B5234]/10">
               <h3 className="text-2xl font-bold text-[#3E3E3E] mb-6 border-b border-[#E8E4DB] pb-4">Immediate Sobeys ROI</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -631,7 +662,7 @@ export default function App() {
       
       {currentFlow === 'instore' && step > 0 && step < 14 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
       {currentFlow === 'o2o' && step > 0 && step < 7 && (<button onClick={back} className="fixed bottom-12 left-12 text-[#3E3E3E]/40 hover:text-[#3E3E3E] flex items-center gap-2 text-xl italic transition-all z-50 cursor-pointer"><ChevronLeft size={24} /> Back</button>)}
-
+      
       {currentFlow === 'enterprise' && (
         <div className="fixed bottom-8 left-0 w-full flex justify-between px-12 z-50">
           <button disabled className="opacity-30 flex items-center gap-2 font-bold uppercase tracking-widest text-sm bg-white px-4 py-2 rounded-full shadow-sm"><ChevronLeft size={20}/> Previous</button>
